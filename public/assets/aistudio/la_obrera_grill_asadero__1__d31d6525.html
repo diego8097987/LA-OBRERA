@@ -1,0 +1,2400 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LA OBRERA Grill Asadero | Pedidos en Línea y Cuentas por Persona</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Dancing+Script:wght@700&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        coal: '#0c0a09',
+                        charcoal: '#181311',
+                        ember: '#ff5500',
+                        flame: '#ff9900',
+                        gold: '#f5b041',
+                        cream: '#f5efe6'
+                    },
+                    fontFamily: {
+                        display: ['Cinzel', 'serif'],
+                        heading: ['Oswald', 'sans-serif'],
+                        bebas: ['Bebas Neue', 'sans-serif'],
+                        script: ['Dancing Script', 'cursive'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0c0a09;
+            color: #f5efe6;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(255, 85, 0, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 85% 60%, rgba(255, 136, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 95%, rgba(220, 38, 38, 0.14) 0%, transparent 50%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        /* Textura sutil de carbón */
+        .bg-carbon-pattern {
+            background-image: radial-gradient(rgba(255, 140, 0, 0.07) 1px, transparent 0);
+            background-size: 28px 28px;
+        }
+
+        /* Animación de resplandor de fuego para el logo */
+        @keyframes firePulse {
+            0%, 100% {
+                box-shadow: 0 0 25px rgba(255, 85, 0, 0.65), 0 0 50px rgba(255, 153, 0, 0.35), inset 0 0 15px rgba(255, 85, 0, 0.4);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 38px rgba(255, 85, 0, 0.9), 0 0 75px rgba(255, 153, 0, 0.55), inset 0 0 25px rgba(255, 153, 0, 0.6);
+                transform: scale(1.02);
+            }
+        }
+
+        .logo-glow {
+            animation: firePulse 3.5s infinite ease-in-out;
+        }
+
+        /* Línea punteada estilo menú clásico de asadero */
+        .menu-dots {
+            background-image: radial-gradient(circle, rgba(245, 239, 230, 0.28) 1px, transparent 1px);
+            background-position: bottom;
+            background-size: 8px 1px;
+            background-repeat: repeat-x;
+        }
+
+        /* Scrollbar oculta para barras deslizables */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Gradiente de Instagram */
+        .ig-gradient {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+        .ig-gradient:hover {
+            filter: brightness(1.12);
+        }
+
+        /* Tarjeta de platillo con borde brasa al pasar el cursor */
+        .dish-card {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(145deg, rgba(28, 22, 19, 0.92), rgba(16, 13, 11, 0.96));
+        }
+        .dish-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 115, 0, 0.55);
+            box-shadow: 0 10px 25px -5px rgba(255, 85, 0, 0.2);
+        }
+
+        /* Partículas de brasa flotantes */
+        .ember-particle {
+            position: fixed;
+            bottom: -10px;
+            width: 4px;
+            height: 4px;
+            background: radial-gradient(circle, #ffae00, #ff4500);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0;
+            animation: floatUp linear infinite;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) translateX(0) scale(1);
+                opacity: 0;
+            }
+            20% {
+                opacity: 0.75;
+            }
+            80% {
+                opacity: 0.4;
+            }
+            100% {
+                transform: translateY(-90vh) translateX(40px) scale(0.2);
+                opacity: 0;
+            }
+        }
+
+        /* Ticket dentado estilo recibo térmico */
+        .receipt-zig-zag {
+            background: linear-gradient(-45deg, #181311 8px, transparent 0), linear-gradient(45deg, #181311 8px, transparent 0);
+            background-position: left-bottom;
+            background-repeat: repeat-x;
+            background-size: 16px 16px;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #ticket-printable-area, #ticket-printable-area * {
+                visibility: visible;
+            }
+            #ticket-printable-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: #fff !important;
+                color: #000 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-carbon-pattern min-h-screen flex flex-col selection:bg-ember selection:text-white relative">
+
+    <!-- Definición de Plantilla SVG Exacta del Logotipo Oficial "LA OBRERA Grill ASADERO" -->
+    <svg class="hidden" aria-hidden="true">
+        <defs>
+            <radialGradient id="fireBgGrad" cx="50%" cy="60%" r="55%">
+                <stop offset="0%" stop-color="#ff9900" stop-opacity="0.85"/>
+                <stop offset="45%" stop-color="#cc3300" stop-opacity="0.75"/>
+                <stop offset="80%" stop-color="#4a0e00" stop-opacity="0.95"/>
+                <stop offset="100%" stop-color="#0d0502" stop-opacity="1"/>
+            </radialGradient>
+            <linearGradient id="flameFillGrad" x1="0%" y1="100%" x2="10%" y2="0%">
+                <stop offset="0%" stop-color="#e65c00"/>
+                <stop offset="55%" stop-color="#ff9914"/>
+                <stop offset="100%" stop-color="#ffcc33"/>
+            </linearGradient>
+            <linearGradient id="grillYellowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffd000"/>
+                <stop offset="100%" stop-color="#f59e0b"/>
+            </linearGradient>
+            <path id="asaderoCurvePath" d="M 102,292 A 118,118 0 0,0 298,292" />
+            <filter id="fireAuraFilter" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="8" result="noise"/>
+                <feColorMatrix type="matrix" values="
+                    1.5 0   0   0   0.1
+                    0.5 0.3 0   0   0
+                    0   0   0   0   0
+                    0   0   0   0.7 0" in="noise" result="coloredFire"/>
+                <feComposite in="SourceGraphic" in2="coloredFire" operator="atop"/>
+            </filter>
+        </defs>
+
+        <symbol id="la-obrera-official-logo" viewBox="0 0 400 400">
+            <circle cx="200" cy="200" r="196" fill="url(#fireBgGrad)"/>
+            <g opacity="0.55">
+                <path d="M35,260 Q60,150 40,90 Q95,140 110,50 Q145,120 190,30 Q230,115 280,45 Q290,130 355,95 Q325,190 365,270 Q285,365 200,385 Q105,365 35,260 Z" fill="#ff5500" filter="blur(8px)"/>
+                <path d="M55,295 Q95,200 85,130 Q140,175 175,85 Q225,165 270,110 Q300,195 345,285 Q265,375 200,388 Q125,375 55,295 Z" fill="#ffae00" opacity="0.6" filter="blur(6px)"/>
+            </g>
+            <circle cx="200" cy="242" r="118" fill="#050505" stroke="#ffffff" stroke-width="11"/>
+            <clipPath id="grillClipCircle">
+                <circle cx="200" cy="242" r="82"/>
+            </clipPath>
+            <g clip-path="url(#grillClipCircle)" fill="url(#grillYellowGrad)">
+                <rect x="110" y="242" width="180" height="10" rx="3"/>
+                <rect x="110" y="258" width="180" height="10" rx="3"/>
+                <rect x="110" y="274" width="180" height="10" rx="3"/>
+                <rect x="110" y="290" width="180" height="10" rx="3"/>
+                <rect x="110" y="306" width="180" height="10" rx="3"/>
+            </g>
+            <path d="M 92,190
+                     C 90,145 128,118 148,86
+                     C 155,73 149,54 143,45
+                     C 168,52 184,78 181,102
+                     C 196,65 232,32 272,18
+                     C 262,48 242,74 238,105
+                     C 254,96 266,92 280,96
+                     C 260,116 254,142 260,190 Z"
+                  fill="#ffffff" stroke="#ffffff" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M 255,95
+                     C 254,68 275,54 282,30
+                     C 298,48 298,75 278,94
+                     C 268,103 257,104 255,95 Z"
+                  fill="#ffffff" stroke="#ffffff" stroke-width="16" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M 96,190
+                     C 94,148 130,120 150,88
+                     C 157,75 151,57 146,48
+                     C 167,55 182,80 179,105
+                     C 194,68 230,36 268,22
+                     C 258,50 238,76 234,108
+                     C 250,99 262,95 275,98
+                     C 256,118 250,144 256,190 Z"
+                  fill="url(#flameFillGrad)" stroke="#1a0800" stroke-width="2.5"/>
+            <path d="M 256,94
+                     C 255,69 275,55 282,32
+                     C 296,49 296,74 277,92
+                     C 268,100 258,101 256,94 Z"
+                  fill="url(#flameFillGrad)" stroke="#1a0800" stroke-width="2.5"/>
+            <path d="M 140,185 C 142,150 165,135 175,112 C 180,132 192,140 202,115 C 204,142 222,155 224,185 Z"
+                  fill="#ffe066" opacity="0.65"/>
+            <rect x="30" y="182" width="340" height="66" rx="10" fill="#050505" stroke="#ffffff" stroke-width="9"/>
+            <text x="198" y="224"
+                  text-anchor="middle"
+                  fill="#ffffff"
+                  font-family="'Cinzel', Georgia, serif"
+                  font-weight="900"
+                  font-size="31"
+                  letter-spacing="2.5">LA OBRERA</text>
+            <text x="315" y="240"
+                  text-anchor="end"
+                  fill="#e5e5e5"
+                  font-family="'Inter', sans-serif"
+                  font-weight="700"
+                  font-size="7.5"
+                  letter-spacing="0.8">DESDE 1996</text>
+            <g transform="translate(202, 286) rotate(-14)">
+                <text x="0" y="0"
+                      text-anchor="middle"
+                      fill="#050505"
+                      stroke="#050505"
+                      stroke-width="12"
+                      stroke-linejoin="round"
+                      font-family="'Dancing Script', cursive"
+                      font-weight="700"
+                      font-size="56">Grill</text>
+                <text x="0" y="0"
+                      text-anchor="middle"
+                      fill="#ffffff"
+                      font-family="'Dancing Script', cursive"
+                      font-weight="700"
+                      font-size="56">Grill</text>
+            </g>
+            <text fill="#ffffff"
+                  font-family="'Cinzel', Georgia, serif"
+                  font-weight="900"
+                  font-size="25"
+                  letter-spacing="2"
+                  stroke="#000000"
+                  stroke-width="1.5"
+                  paint-order="stroke">
+                <textPath href="#asaderoCurvePath" startOffset="50%" text-anchor="middle">ASADERO</textPath>
+            </text>
+            <circle cx="200" cy="200" r="196" fill="none" stroke="rgba(255,136,0,0.45)" stroke-width="3"/>
+        </symbol>
+    </svg>
+
+    <!-- Input oculto por si el usuario desea seleccionar el archivo de imagen de su dispositivo -->
+    <input type="file" id="custom-logo-input" accept="image/*" class="hidden" onchange="handleCustomLogoUpload(event)">
+
+    <!-- Contenedor de brasas decorativas -->
+    <div id="embers-container" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
+
+    <!-- BARRA SUPERIOR FIJA -->
+    <nav class="sticky top-0 z-40 bg-coal/95 backdrop-blur-md border-b border-orange-900/40 px-3 sm:px-4 py-2.5">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-2">
+            <!-- Mini Identidad con Logotipo Oficial -->
+            <a href="#" class="flex items-center gap-2.5 group shrink-0">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden border-2 border-ember shadow-md shadow-ember/30 bg-black flex items-center justify-center shrink-0 relative">
+                    <img src="image_8b9583.png" 
+                         alt="Logo La Obrera" 
+                         class="custom-logo-img w-full h-full object-contain rounded-full relative z-10"
+                         onerror="if(this.src.indexOf('498628152')===-1){this.src='498628152_17842205964524453_4721742312913158472_n.jpg';}else{this.style.display='none';}">
+                    <svg class="w-full h-full absolute inset-0 z-0">
+                        <use href="#la-obrera-official-logo"></use>
+                    </svg>
+                </div>
+                <div>
+                    <span class="font-heading font-bold tracking-wider text-sm sm:text-lg text-white group-hover:text-flame transition-colors block leading-none">LA OBRERA</span>
+                    <span class="text-[10px] uppercase tracking-widest text-amber-400 font-semibold">Pedidos & Cuentas</span>
+                </div>
+            </a>
+
+            <!-- Indicador de Mesa / Modalidad Activa + Botones Rápidos -->
+            <div class="flex items-center gap-1.5 sm:gap-2.5">
+                <!-- Botón Cambiar/Configurar Mesa y Personas -->
+                <button onclick="openRegistrationModal(false)" 
+                        class="bg-charcoal hover:bg-stone-800 border border-stone-700 hover:border-amber-500/60 text-cream px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition"
+                        title="Configurar Mesa y Personas">
+                    <i class="fa-solid fa-users text-amber-400"></i>
+                    <span id="nav-table-label" class="font-semibold text-amber-300 truncate max-w-[90px] sm:max-w-[140px]">Registrar</span>
+                    <i class="fa-solid fa-pen text-[10px] text-stone-400"></i>
+                </button>
+
+                <!-- Botón Directo Instagram -->
+                <a href="https://www.instagram.com/asadero_la_obrera?utm_source=ig_web_button_share_sheet&cplk=ZDNlZDc0MzIxNw==" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   class="ig-gradient text-white px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-lg shadow-pink-600/25 transition transform hover:scale-105 active:scale-95">
+                    <i class="fa-brands fa-instagram text-sm sm:text-base"></i>
+                    <span class="hidden md:inline">Instagram</span>
+                </a>
+
+                <!-- Botón Cuentas / Carrito Multi-Persona -->
+                <button onclick="toggleOrderDrawer()" 
+                        class="relative bg-gradient-to-r from-ember to-amber-600 hover:from-orange-600 hover:to-amber-500 text-white px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-lg shadow-ember/30 transition transform active:scale-95">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span class="hidden sm:inline">Cuentas</span>
+                    <span id="nav-order-badge" class="bg-black/85 text-amber-300 px-1.5 py-0.5 rounded-full text-[11px] font-extrabold">0</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO / ENCABEZADO PRINCIPAL -->
+    <header class="relative z-10 pt-6 pb-5 px-4 text-center overflow-hidden border-b border-orange-950/60">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 sm:w-[450px] sm:h-[450px] bg-ember/15 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-3xl mx-auto relative flex flex-col items-center">
+            <!-- CONTENEDOR DEL LOGOTIPO OFICIAL -->
+            <div class="relative mb-5 group">
+                <div class="w-36 h-36 sm:w-48 sm:h-48 rounded-full p-1.5 bg-gradient-to-tr from-red-700 via-ember to-amber-400 logo-glow flex items-center justify-center">
+                    <div class="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative border-2 border-black shadow-inner">
+                        <img id="hero-logo-img"
+                             src="image_8b9583.png" 
+                             alt="LA OBRERA Grill Asadero Logo Oficial" 
+                             class="custom-logo-img w-full h-full object-contain rounded-full relative z-10"
+                             onerror="if(this.src.indexOf('498628152')===-1){this.src='498628152_17842205964524453_4721742312913158472_n.jpg';}else{this.style.display='none';}">
+                        <svg class="w-full h-full absolute inset-0 z-0 select-none" aria-label="LA OBRERA Grill Asadero">
+                            <use href="#la-obrera-official-logo"></use>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Botón discreto para cambiar/cargar imagen desde el dispositivo -->
+                <button onclick="document.getElementById('custom-logo-input').click()" 
+                        title="Cargar archivo de logo desde tu dispositivo"
+                        class="absolute top-1 right-1 z-20 w-8 h-8 rounded-full bg-stone-900/90 hover:bg-ember text-amber-400 hover:text-white border border-amber-500/40 shadow-lg flex items-center justify-center text-xs transition opacity-80 hover:opacity-100">
+                    <i class="fa-solid fa-camera"></i>
+                </button>
+
+                <span class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-20 bg-coal border border-amber-500/70 text-amber-400 text-[11px] font-heading tracking-widest px-3.5 py-0.5 rounded-full uppercase shadow-lg whitespace-nowrap">
+                    ★ Desde 1996 ★
+                </span>
+            </div>
+
+            <div class="flex items-center justify-center gap-3 text-amber-500/80 mb-1">
+                <span class="h-[1px] w-10 sm:w-16 bg-gradient-to-r from-transparent to-amber-500"></span>
+                <i class="fa-solid fa-fire text-ember text-sm"></i>
+                <span class="text-xs sm:text-sm font-heading tracking-[0.25em] uppercase text-amber-400 font-semibold">★ Sabor, Fuego y Pasión ★</span>
+                <i class="fa-solid fa-fire text-ember text-sm"></i>
+                <span class="h-[1px] w-10 sm:w-16 bg-gradient-to-l from-transparent to-amber-500"></span>
+            </div>
+
+            <h1 class="font-display font-black text-3xl sm:text-5xl tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-amber-100 via-stone-200 to-amber-500 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] my-1">
+                PEDIDOS EN LÍNEA
+            </h1>
+            <p class="text-stone-400 text-xs sm:text-sm max-w-lg mx-auto mt-1">
+                Registra tu nombre completo, agrega comensales a tu mesa y pide con <strong class="text-amber-400">cuentas individuales por persona</strong> o al centro.
+            </p>
+        </div>
+    </header>
+
+    <!-- BARRA DE COMENSAL ACTIVO (SISTEMA DE CUENTAS POR PERSONA) -->
+    <section class="sticky top-[55px] z-30 bg-gradient-to-r from-coal via-charcoal to-coal border-b border-orange-900/50 shadow-xl">
+        <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5">
+            
+            <!-- Fila Superior: Selector de Persona Activa que está pidiendo -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pb-2.5 border-b border-stone-800/80">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-heading uppercase tracking-wider text-amber-400 bg-ember/15 border border-ember/40 px-2.5 py-1 rounded-lg shrink-0">
+                        <i class="fa-solid fa-user-check text-ember"></i>
+                        <span>Pidiendo para:</span>
+                    </span>
+                    
+                    <!-- Chips de Personas en la Mesa -->
+                    <div id="diners-chips-bar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                        <!-- Renderizado dinámicamente -->
+                    </div>
+
+                    <!-- Botón rápido para agregar otra persona a la mesa -->
+                    <button onclick="openAddPersonModal()" 
+                            class="shrink-0 px-2.5 py-1 rounded-full bg-stone-900 hover:bg-stone-800 text-amber-300 border border-amber-500/40 hover:border-amber-400 text-xs font-semibold flex items-center gap-1 transition shadow-sm">
+                        <i class="fa-solid fa-user-plus text-[10px]"></i>
+                        <span>+ Otra Persona</span>
+                    </button>
+                </div>
+
+                <!-- Resumen Rápido de la Persona Seleccionada -->
+                <div class="flex items-center justify-between lg:justify-end gap-3 text-xs bg-black/50 border border-stone-800 px-3 py-1.5 rounded-xl shrink-0">
+                    <div class="flex items-center gap-1.5 truncate">
+                        <span class="text-stone-400">Cuenta de</span>
+                        <strong id="active-diner-summary-name" class="text-white font-semibold truncate max-w-[140px]">Sin registrar</strong>:
+                        <span id="active-diner-summary-subtotal" class="font-heading text-sm font-bold text-amber-400">$0</span>
+                    </div>
+                    <button onclick="toggleOrderDrawer()" class="text-ember hover:text-amber-400 font-heading uppercase tracking-wider font-bold text-[11px] flex items-center gap-1 shrink-0">
+                        <span>Ver Desglose</span>
+                        <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Fila Inferior: Categorías y Buscador -->
+            <div class="pt-2.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+                <!-- Barra de Categorías deslizable -->
+                <div id="category-tabs" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                    <!-- Generado dinámicamente con JS -->
+                </div>
+
+                <!-- Buscador en tiempo real -->
+                <div class="relative w-full md:w-60 shrink-0">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-amber-500/70 text-xs"></i>
+                    <input type="text" 
+                           id="search-input" 
+                           oninput="handleSearch(this.value)"
+                           placeholder="Buscar corte, parrillada, bebida..." 
+                           class="w-full pl-8 pr-7 py-1.5 bg-charcoal border border-stone-700 focus:border-ember rounded-full text-xs text-cream placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember transition">
+                    <button id="clear-search-btn" 
+                            onclick="clearSearch()" 
+                            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-white text-xs">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTENIDO PRINCIPAL DEL MENÚ -->
+    <main class="flex-grow relative z-10 max-w-6xl w-full mx-auto px-4 py-6 sm:py-8">
+        
+        <!-- Banner informativo de cómo funcionan las cuentas por persona -->
+        <div class="mb-6 bg-gradient-to-r from-orange-950/60 via-stone-900/80 to-orange-950/60 border border-orange-800/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-stone-300 shadow-lg">
+            <div class="flex items-start sm:items-center gap-3">
+                <span class="w-9 h-9 rounded-xl bg-ember/20 border border-ember/50 flex items-center justify-center text-amber-400 shrink-0 text-base">
+                    <i class="fa-solid fa-users-viewfinder"></i>
+                </span>
+                <div>
+                    <p class="text-white font-semibold">Sistema Automático de Cuentas Individuales por Persona</p>
+                    <p class="text-stone-400 text-xs mt-0.5">
+                        Selecciona arriba el nombre del comensal y toca <strong class="text-amber-400">+ Agregar</strong> en sus platillos. Cada persona tendrá su propia cuenta separada lista para pedir o pagar.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <button onclick="openAddPersonModal()" class="px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 text-xs font-heading uppercase tracking-wider transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Agregar Comensal</span>
+                </button>
+                <button onclick="toggleOrderDrawer()" class="px-3 py-1.5 rounded-xl bg-ember/20 hover:bg-ember/30 text-amber-300 border border-ember/40 text-xs font-heading uppercase tracking-wider transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Ver Cuentas</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Estado sin resultados -->
+        <div id="empty-search-state" class="hidden text-center py-16">
+            <div class="w-16 h-16 rounded-full bg-stone-900 border border-stone-700 flex items-center justify-center mx-auto mb-3 text-ember text-2xl">
+                <i class="fa-solid fa-fire-extinguisher"></i>
+            </div>
+            <h3 class="font-heading text-xl text-white uppercase tracking-wide">No encontramos ese platillo</h3>
+            <p class="text-stone-400 text-sm mt-1">Intenta buscar con otra palabra o selecciona "Todos" en las categorías.</p>
+            <button onclick="resetFilters()" class="mt-4 px-5 py-2 rounded-full bg-ember text-white text-xs font-bold uppercase tracking-wider hover:bg-orange-600 transition">
+                Mostrar todo el menú
+            </button>
+        </div>
+
+        <!-- Grid de Secciones del Menú -->
+        <div id="menu-sections-container" class="grid grid-cols-1 lg:grid-cols-2 gap-7">
+            <!-- Renderizado por JavaScript -->
+        </div>
+
+        <!-- Banner Destacado Parrillada / Experiencia -->
+        <div class="mt-12 relative rounded-2xl overflow-hidden border border-amber-500/30 bg-gradient-to-r from-stone-950 via-orange-950/40 to-stone-950 p-6 sm:p-8 text-center shadow-2xl">
+            <div class="max-w-2xl mx-auto">
+                <div class="flex justify-center gap-2 text-ember mb-2">
+                    <i class="fa-solid fa-fire-flame-curved text-xl animate-bounce"></i>
+                    <i class="fa-solid fa-fire-flame-curved text-2xl"></i>
+                    <i class="fa-solid fa-fire-flame-curved text-xl animate-bounce"></i>
+                </div>
+                <h2 class="font-heading text-2xl sm:text-4xl font-bold uppercase tracking-wider text-amber-400">
+                    "Aquí no solo asamos, creamos experiencias"
+                </h2>
+                <p class="font-script text-2xl sm:text-3xl text-stone-200 mt-1">
+                    ★ que se quedan en la memoria ★
+                </p>
+                <div class="mt-6 flex flex-wrap justify-center gap-3">
+                    <a href="https://www.instagram.com/asadero_la_obrera?utm_source=ig_web_button_share_sheet&cplk=ZDNlZDc0MzIxNw==" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="ig-gradient text-white px-6 py-3 rounded-xl font-heading tracking-wider uppercase text-sm sm:text-base font-bold flex items-center gap-2.5 shadow-lg hover:scale-105 transition">
+                        <i class="fa-brands fa-instagram text-xl"></i>
+                        <span>Visitar Instagram Oficial</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- PIE DE PÁGINA (FOOTER) -->
+    <footer class="relative z-10 bg-black/90 border-t border-orange-900/40 pt-10 pb-28 sm:pb-16 px-4 text-center">
+        <div class="max-w-4xl mx-auto flex flex-col items-center">
+            <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-ember mb-3 bg-black flex items-center justify-center relative shadow-lg shadow-ember/25">
+                <img src="image_8b9583.png" 
+                     alt="La Obrera Grill Asadero" 
+                     class="custom-logo-img w-full h-full object-contain rounded-full relative z-10"
+                     onerror="if(this.src.indexOf('498628152')===-1){this.src='498628152_17842205964524453_4721742312913158472_n.jpg';}else{this.style.display='none';}">
+                <svg class="w-full h-full absolute inset-0 z-0">
+                    <use href="#la-obrera-official-logo"></use>
+                </svg>
+            </div>
+
+            <h3 class="font-display font-bold text-xl text-white tracking-widest">LA OBRERA GRILL ASADERO</h3>
+            <p class="text-amber-500 text-xs font-heading tracking-[0.25em] uppercase mt-1">★ Sabor, Fuego y Pasión • Desde 1996 ★</p>
+
+            <div class="my-6">
+                <a href="https://www.instagram.com/asadero_la_obrera?utm_source=ig_web_button_share_sheet&cplk=ZDNlZDc0MzIxNw==" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   class="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-stone-900 hover:bg-stone-800 border border-pink-500/40 text-white transition group shadow-lg">
+                    <span class="w-10 h-10 rounded-xl ig-gradient flex items-center justify-center text-xl shadow-md group-hover:scale-110 transition">
+                        <i class="fa-brands fa-instagram"></i>
+                    </span>
+                    <div class="text-left">
+                        <span class="block text-[10px] uppercase tracking-widest text-amber-400 font-semibold">Síguenos en Instagram</span>
+                        <span class="font-heading text-base sm:text-lg tracking-wide text-white group-hover:text-pink-400 transition">@asadero_la_obrera</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-stone-500 group-hover:text-white ml-2 transition"></i>
+                </a>
+            </div>
+
+            <p class="text-stone-500 text-xs">
+                © <span id="current-year"></span> La Obrera Grill Asadero. Sistema Automático de Pedidos y Cuentas Separadas.
+            </p>
+        </div>
+    </footer>
+
+    <!-- BARRA FLOTANTE INFERIOR DE CUENTAS Y PEDIDO -->
+    <div id="floating-order-bar" class="fixed bottom-3 inset-x-3 sm:inset-x-4 max-w-2xl mx-auto z-40 hidden">
+        <div onclick="toggleOrderDrawer()" 
+             class="cursor-pointer bg-gradient-to-r from-ember via-orange-600 to-amber-600 text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl shadow-black border border-amber-300/50 flex items-center justify-between gap-3 transform hover:scale-[1.01] transition">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-black/35 flex items-center justify-center font-heading font-bold text-lg shrink-0" id="floating-count">
+                    0
+                </div>
+                <div class="min-w-0">
+                    <span id="floating-subtext" class="text-[11px] uppercase tracking-wider font-semibold text-amber-100 block truncate">
+                        Cuentas por Persona Activas
+                    </span>
+                    <span class="font-heading text-base sm:text-lg font-bold leading-tight block">
+                        Ver Cuentas Separadas y Confirmar Pedido
+                    </span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="text-right bg-black/30 px-3 py-1 rounded-xl">
+                    <span class="block text-[10px] uppercase tracking-wider text-amber-200">Total Mesa</span>
+                    <span id="floating-total" class="font-heading text-lg sm:text-xl font-bold leading-none">$0</span>
+                </div>
+                <i class="fa-solid fa-chevron-up text-sm pr-1"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 1: REGISTRO OBLIGATORIO ANTES DE PEDIR (NOMBRE COMPLETO Y MESA) -->
+    <!-- =================================================================== -->
+    <div id="registration-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto hidden">
+        <div class="bg-charcoal border-2 border-amber-500/50 rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative overflow-hidden my-auto">
+            <!-- Resplandor superior -->
+            <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-40 bg-ember/25 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Botón cerrar (solo visible si ya hay al menos un cliente registrado) -->
+            <button id="close-reg-modal-btn" onclick="closeRegistrationModal()" class="hidden absolute top-4 right-4 w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="relative text-center mb-4">
+                <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-2.5 p-1 bg-gradient-to-tr from-ember to-amber-400 shadow-lg shadow-ember/30">
+                    <div class="w-full h-full rounded-full overflow-hidden bg-black relative flex items-center justify-center">
+                        <img src="image_8b9583.png" 
+                             alt="La Obrera" 
+                             class="custom-logo-img w-full h-full object-contain rounded-full relative z-10"
+                             onerror="if(this.src.indexOf('498628152')===-1){this.src='498628152_17842205964524453_4721742312913158472_n.jpg';}else{this.style.display='none';}">
+                        <svg class="w-full h-full absolute inset-0 z-0">
+                            <use href="#la-obrera-official-logo"></use>
+                        </svg>
+                    </div>
+                </div>
+                <span class="text-[11px] font-heading uppercase tracking-[0.2em] text-amber-400 block">★ Bienvenido a La Obrera Grill Asadero ★</span>
+                <h2 class="font-heading text-2xl sm:text-3xl font-bold text-white uppercase tracking-wide mt-0.5">
+                    Registro de Pedido y Cuentas
+                </h2>
+                <p class="text-stone-400 text-xs sm:text-sm mt-1">
+                    Antes de ordenar, ingresa tu <strong class="text-amber-300">Nombre Completo</strong>. También puedes registrar a las demás personas de tu mesa para llevar <strong class="text-amber-300">cuentas separadas</strong>.
+                </p>
+            </div>
+
+            <form id="registration-form" onsubmit="handleInitialRegistration(event)" class="space-y-4 relative">
+                <!-- Paso 1: Nombre Completo del Titular (Obligatorio) -->
+                <div>
+                    <label for="reg-main-fullname" class="block text-xs font-heading uppercase tracking-wider text-amber-400 mb-1">
+                        1. Tu Nombre Completo (Titular / Persona 1) *
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user-pen absolute left-3.5 top-1/2 -translate-y-1/2 text-ember text-sm"></i>
+                        <input type="text" 
+                               id="reg-main-fullname" 
+                               required
+                               placeholder="Ej. Juan Carlos Pérez López"
+                               class="w-full pl-10 pr-4 py-2.5 bg-coal border border-stone-700 focus:border-ember rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember">
+                    </div>
+                    <p id="reg-error-msg" class="hidden text-red-400 text-xs mt-1.5 font-medium flex items-center gap-1.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Por favor ingresa tu nombre y apellido (mínimo 2 palabras) para continuar.</span>
+                    </p>
+                </div>
+
+                <!-- Paso 2: Modalidad o Número de Mesa -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-heading uppercase tracking-wider text-amber-400 mb-1">
+                            2. Modalidad o Mesa *
+                        </label>
+                        <select id="reg-service-type" 
+                                onchange="handleServiceTypeChange(this.value)"
+                                class="w-full bg-coal border border-stone-700 focus:border-ember rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-ember">
+                            <optgroup label="🍽️ Comer en el Restaurante">
+                                <option value="Mesa 1">🍽️ Comer aquí — Mesa 1</option>
+                                <option value="Mesa 2">🍽️ Comer aquí — Mesa 2</option>
+                                <option value="Mesa 3">🍽️ Comer aquí — Mesa 3</option>
+                                <option value="Mesa 4">🍽️ Comer aquí — Mesa 4</option>
+                                <option value="Mesa 5">🍽️ Comer aquí — Mesa 5</option>
+                                <option value="Mesa 6">🍽️ Comer aquí — Mesa 6</option>
+                                <option value="Mesa 7">🍽️ Comer aquí — Mesa 7</option>
+                                <option value="Mesa 8">🍽️ Comer aquí — Mesa 8</option>
+                                <option value="Mesa 9">🍽️ Comer aquí — Mesa 9</option>
+                                <option value="Mesa 10">🍽️ Comer aquí — Mesa 10</option>
+                            </optgroup>
+                            <optgroup label="🛍️ Para Llevar">
+                                <option value="Para Llevar / Recoger">🛍️ Para Llevar (Recoger en Asadero)</option>
+                            </optgroup>
+                            <optgroup label="🛵 Servicio a Domicilio">
+                                <option value="Servicio a Domicilio">🛵 Servicio a Domicilio</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="reg-notes" class="block text-xs font-heading uppercase tracking-wider text-amber-400 mb-1">
+                            3. Número de Teléfono / WhatsApp *
+                        </label>
+                        <div class="relative">
+                            <i class="fa-solid fa-phone absolute left-3.5 top-1/2 -translate-y-1/2 text-ember text-xs"></i>
+                            <input type="tel" 
+                                   id="reg-notes" 
+                                   required
+                                   placeholder="Ej. 55 1234 5678"
+                                   class="w-full pl-9 pr-3.5 py-2.5 bg-coal border border-stone-700 focus:border-ember rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bloque Dinámico de 2 Líneas para Servicio a Domicilio -->
+                <div id="delivery-address-fields" class="hidden bg-coal/95 border border-amber-500/50 rounded-2xl p-3.5 space-y-2.5 shadow-inner">
+                    <div class="flex items-center justify-between text-amber-400 text-xs font-heading uppercase tracking-wider">
+                        <span class="flex items-center gap-1.5 font-bold">
+                            <i class="fa-solid fa-motorcycle text-ember"></i>
+                            <span>Datos para Servicio a Domicilio *</span>
+                        </span>
+                        <span class="text-[10px] bg-ember/20 text-amber-300 border border-ember/40 px-2 py-0.5 rounded-full">Requerido</span>
+                    </div>
+
+                    <!-- Línea 1: Ubicación (Calle y Número) y Colonia -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div class="relative">
+                            <i class="fa-solid fa-location-dot absolute left-3 top-1/2 -translate-y-1/2 text-ember text-xs"></i>
+                            <input type="text" 
+                                   id="reg-delivery-street" 
+                                   placeholder="Ubicación: Calle y Número *"
+                                   class="w-full pl-8 pr-3 py-2 bg-charcoal border border-stone-700 focus:border-ember rounded-xl text-xs sm:text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember">
+                        </div>
+                        <div class="relative">
+                            <i class="fa-solid fa-map-pin absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 text-xs"></i>
+                            <input type="text" 
+                                   id="reg-delivery-colony" 
+                                   placeholder="Colonia / Fraccionamiento *"
+                                   class="w-full pl-8 pr-3 py-2 bg-charcoal border border-stone-700 focus:border-ember rounded-xl text-xs sm:text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember">
+                        </div>
+                    </div>
+
+                    <!-- Línea 2: Referencia de su casa -->
+                    <div class="relative">
+                        <i class="fa-solid fa-house-flag absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 text-xs"></i>
+                        <input type="text" 
+                               id="reg-delivery-reference" 
+                               placeholder="Referencia de su casa (color de fachada, portón, entre qué calles está...) *"
+                               class="w-full pl-8 pr-3 py-2 bg-charcoal border border-stone-700 focus:border-ember rounded-xl text-xs sm:text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember">
+                    </div>
+
+                    <p id="reg-delivery-error-msg" class="hidden text-red-400 text-xs font-medium flex items-center gap-1.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Por favor ingresa la ubicación, la colonia y una referencia de tu casa para el envío.</span>
+                    </p>
+                </div>
+
+                <!-- Paso 3: Agregar más personas para Cuentas Separadas -->
+                <div class="bg-coal/90 border border-stone-800 rounded-2xl p-3.5">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <span class="text-xs font-heading uppercase tracking-wider text-amber-400 block">
+                                4. ¿Van a pedir cuentas por persona? (Opcional)
+                            </span>
+                            <span class="text-[11px] text-stone-400">
+                                Agrega el nombre completo de tus acompañantes para separar su cuenta.
+                            </span>
+                        </div>
+                        <button type="button" 
+                                onclick="addExtraPersonInputRow()"
+                                class="px-2.5 py-1 rounded-lg bg-ember/20 hover:bg-ember text-amber-300 hover:text-white border border-ember/40 text-xs font-heading uppercase tracking-wider transition flex items-center gap-1 shrink-0">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Agregar Persona</span>
+                        </button>
+                    </div>
+
+                    <!-- Contenedor de inputs de personas adicionales -->
+                    <div id="extra-persons-inputs-container" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        <!-- Filas dinámicas -->
+                    </div>
+                </div>
+
+                <button type="submit" 
+                        class="w-full py-3.5 rounded-xl bg-gradient-to-r from-ember via-orange-600 to-amber-500 hover:from-orange-600 hover:to-amber-400 text-white font-heading text-lg uppercase tracking-wider font-bold shadow-xl shadow-ember/30 transition transform active:scale-[0.99] flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-fire-flame-curved"></i>
+                    <span>Comenzar a Ordenar en el Menú</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 2: AGREGAR RÁPIDAMENTE OTRA PERSONA A LA MESA                  -->
+    <!-- =================================================================== -->
+    <div id="add-person-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-charcoal border border-amber-500/50 rounded-2xl max-w-md w-full p-5 shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-stone-800 pb-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-ember/20 border border-ember text-amber-400 flex items-center justify-center">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-heading text-lg font-bold uppercase text-white leading-none">Nueva Cuenta por Persona</h3>
+                        <span class="text-[11px] text-stone-400">Cada comensal tendrá su propio subtotal</span>
+                    </div>
+                </div>
+                <button onclick="closeAddPersonModal()" class="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleQuickAddPerson(event)" class="space-y-3">
+                <div>
+                    <label for="quick-person-fullname" class="block text-xs font-heading uppercase tracking-wider text-amber-400 mb-1">
+                        Nombre Completo del Comensal *
+                    </label>
+                    <input type="text" 
+                           id="quick-person-fullname" 
+                           required
+                           placeholder="Ej. María Fernanda Gómez"
+                           class="w-full px-3.5 py-2.5 bg-coal border border-stone-700 focus:border-ember rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 focus:ring-ember">
+                    <p id="quick-person-error" class="hidden text-red-400 text-xs mt-1.5 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span>Ingresa el nombre completo (nombre y apellido).</span>
+                    </p>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeAddPersonModal()" class="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold uppercase tracking-wider">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-ember hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-ember/25 flex items-center gap-1.5">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Crear Cuenta y Seleccionar</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DRAWER LATERAL: GESTIÓN DE CUENTAS SEPARADAS POR PERSONA Y PEDIDO    -->
+    <!-- =================================================================== -->
+    <div id="order-drawer-backdrop" onclick="toggleOrderDrawer()" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden transition-opacity"></div>
+    <aside id="order-drawer" class="fixed top-0 right-0 h-full w-full max-w-lg bg-charcoal border-l border-orange-900/50 z-50 transform translate-x-full transition-transform duration-300 flex flex-col shadow-2xl">
+        
+        <!-- Cabecera del Drawer -->
+        <div class="p-4 bg-coal border-b border-stone-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <span class="w-9 h-9 rounded-xl bg-ember/20 border border-ember text-ember flex items-center justify-center text-base">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </span>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-heading text-lg font-bold uppercase tracking-wider text-white leading-none">Cuentas por Persona</h3>
+                        <span id="drawer-table-badge" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">Mesa 1</span>
+                    </div>
+                    <span class="text-[11px] text-stone-400">Revisa la cuenta individual de cada comensal o el total</span>
+                </div>
+            </div>
+            <button onclick="toggleOrderDrawer()" class="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Barra rápida dentro del drawer: Agregar persona y Modo de división de compartidos -->
+        <div class="px-4 py-2.5 bg-stone-950 border-b border-stone-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <button onclick="openAddPersonModal()" class="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-user-plus text-ember"></i>
+                <span>+ Agregar otra persona a la mesa</span>
+            </button>
+
+            <label class="flex items-center gap-1.5 text-stone-300 cursor-pointer select-none" title="Si hay platillos en 'Al Centro / Compartido', divide su costo equitativamente en la cuenta de cada persona">
+                <input type="checkbox" id="split-shared-toggle" onchange="toggleSplitShared(this.checked)" class="rounded border-stone-700 text-ember focus:ring-ember bg-coal">
+                <span class="text-[11px]">Dividir "Al Centro" entre personas</span>
+            </label>
+        </div>
+
+        <!-- Resumen de Domicilio en el Drawer (Visible sólo si es Servicio a Domicilio) -->
+        <div id="drawer-delivery-info-box" class="hidden px-4 py-2.5 bg-orange-950/30 border-b border-ember/30 text-xs space-y-1">
+            <div class="flex items-center justify-between">
+                <span class="font-heading uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-motorcycle text-ember"></i> Dirección de Entrega:
+                </span>
+                <button onclick="openRegistrationModal(false)" class="text-[11px] text-amber-300 hover:underline">Editar</button>
+            </div>
+            <p id="drawer-delivery-line1" class="text-white font-medium"></p>
+            <p id="drawer-delivery-line2" class="text-stone-400 text-[11px]"></p>
+            <p id="drawer-delivery-phone" class="text-amber-300 text-[11px] font-medium"></p>
+        </div>
+
+        <!-- Lista de Cuentas por Persona -->
+        <div id="order-items-list" class="flex-grow overflow-y-auto p-4 space-y-4">
+            <!-- Renderizado dinámicamente con tarjetas por comensal -->
+        </div>
+
+        <!-- Pie del Drawer con Gran Total y Botón Confirmar Pedido Automático -->
+        <div class="p-4 bg-coal border-t border-stone-800 space-y-3">
+            <div class="flex items-center justify-between text-xs text-stone-400">
+                <span>Personas con cuenta activa: <strong id="drawer-diners-count" class="text-white">0</strong></span>
+                <span>Total platillos: <strong id="drawer-items-count" class="text-white">0</strong></span>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-stone-800 pt-2">
+                <div>
+                    <span class="font-heading text-base uppercase text-stone-200 block leading-none">Gran Total de la Mesa:</span>
+                    <span class="text-[11px] text-stone-400">Suma de todas las cuentas individuales</span>
+                </div>
+                <span id="drawer-total-price" class="font-heading text-3xl font-bold text-amber-400">$0</span>
+            </div>
+
+            <!-- Botón Principal: Confirmar Pedido y Generar Tickets -->
+            <button onclick="openOrderConfirmationModal()" 
+                    class="w-full py-3 rounded-xl bg-gradient-to-r from-ember via-orange-600 to-amber-500 hover:from-orange-600 hover:to-amber-400 text-white font-heading text-base uppercase tracking-wider font-bold shadow-xl shadow-ember/30 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-fire-burner"></i>
+                <span>Confirmar Pedido y Generar Cuentas</span>
+            </button>
+
+            <div class="grid grid-cols-3 gap-2 pt-0.5">
+                <button onclick="openRegistrationModal(false)" 
+                        class="px-2.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 text-[11px] font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Editar Mesa</span>
+                </button>
+                <button onclick="copyFullOrderToClipboard()" 
+                        class="px-2.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 border border-stone-800 text-[11px] font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1">
+                    <i class="fa-regular fa-copy"></i>
+                    <span id="copy-order-text">Copiar Todo</span>
+                </button>
+                <button onclick="confirmResetTableSession()" 
+                        class="px-2.5 py-2 rounded-xl bg-stone-900 hover:bg-red-950/60 text-stone-400 hover:text-red-300 border border-stone-800 text-[11px] font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Nueva Mesa</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 3: TICKET DIGITAL DE PEDIDO Y CUENTAS INDIVIDUALES / WHATSAPP  -->
+    <!-- =================================================================== -->
+    <div id="ticket-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto hidden">
+        <div class="bg-charcoal border-2 border-amber-500/60 rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
+            
+            <!-- Encabezado del Modal de Ticket -->
+            <div class="flex items-center justify-between border-b border-stone-800 pb-3 mb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-full bg-green-500/20 border border-green-500 text-green-400 flex items-center justify-center">
+                        <i class="fa-solid fa-check-double"></i>
+                    </span>
+                    <div>
+                        <h3 id="ticket-modal-title" class="font-heading text-lg sm:text-xl font-bold uppercase text-white leading-none">
+                            Pedido Listo • Cuentas Desglosadas
+                        </h3>
+                        <span id="ticket-folio-subtitle" class="text-xs text-amber-400 font-mono">Folio #OBR-0000</span>
+                    </div>
+                </div>
+                <button onclick="closeTicketModal()" class="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-300 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Cuerpo Imprimible del Ticket -->
+            <div id="ticket-printable-area" class="bg-coal border border-stone-800 rounded-2xl p-4 sm:p-5 overflow-y-auto space-y-4 text-sm">
+                <!-- Generado dinámicamente -->
+            </div>
+
+            <!-- Acciones de Envío Automático y Botón Finalizar Compra -->
+            <div class="pt-4 mt-3 border-t border-stone-800 space-y-2.5 shrink-0">
+                <!-- Botón Principal Solicitado: Finalizar la Compra y Borrar Datos -->
+                <button onclick="finalizePurchaseAndClearData()" 
+                        class="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-heading text-base sm:text-lg uppercase tracking-wider font-bold shadow-xl shadow-ember/40 border border-amber-300/50 transition transform active:scale-[0.99] flex items-center justify-center gap-2.5">
+                    <i class="fa-solid fa-bag-shopping text-lg"></i>
+                    <span>Finalizar la Compra</span>
+                </button>
+                <p class="text-[11px] text-center text-stone-400 leading-tight">
+                    Al pulsar <strong class="text-amber-400">Finalizar la Compra</strong> se concluirá tu pedido y se borrarán automáticamente tu nombre, teléfono y ubicación.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <button onclick="sendTicketViaWhatsApp()" 
+                            class="w-full py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-heading text-xs sm:text-sm uppercase tracking-wider font-bold shadow-lg shadow-green-600/25 transition flex items-center justify-center gap-2">
+                        <i class="fa-brands fa-whatsapp text-base"></i>
+                        <span>Enviar por WhatsApp</span>
+                    </button>
+                    <button onclick="copyCurrentTicketText()" 
+                            class="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 font-heading text-xs sm:text-sm uppercase tracking-wider font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-regular fa-copy"></i>
+                        <span id="btn-copy-ticket-label">Copiar Ticket</span>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <button onclick="window.print()" 
+                            class="flex-1 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 text-xs font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Imprimir / PDF</span>
+                    </button>
+                    <button onclick="closeTicketModal()" 
+                            class="flex-1 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-400 border border-amber-500/30 text-xs font-semibold uppercase tracking-wider transition">
+                        Seguir Ordenando
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN PARA REINICIAR MESA (Reemplazo de confirm() nativo) -->
+    <div id="reset-confirm-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-charcoal border border-red-500/40 rounded-2xl max-w-sm w-full p-5 text-center shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/50 text-red-400 flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-rotate-right"></i>
+            </div>
+            <h4 class="font-heading text-lg font-bold uppercase text-white">¿Iniciar Nueva Mesa o Pedido?</h4>
+            <p class="text-stone-400 text-xs mt-1">
+                Se vaciarán todas las cuentas por persona actuales para registrar un nuevo pedido desde cero.
+            </p>
+            <div class="flex items-center justify-center gap-2 mt-5">
+                <button onclick="closeResetConfirmModal()" class="flex-1 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold uppercase">
+                    Cancelar
+                </button>
+                <button onclick="executeResetTableSession()" class="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase">
+                    Sí, Reiniciar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificación Toast -->
+    <div id="toast-notification" class="fixed top-20 right-4 z-50 hidden bg-stone-900 border border-amber-500 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm font-medium max-w-xs sm:max-w-sm">
+        <i class="fa-solid fa-circle-check text-amber-400 text-base shrink-0"></i>
+        <span id="toast-message">Agregado a tu cuenta</span>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DATOS DEL MENÚ Y LÓGICA DEL SISTEMA MULTI-CUENTA POR PERSONA         -->
+    <!-- =================================================================== -->
+    <script>
+        // Base de datos oficial del menú de LA OBRERA Grill Asadero
+        const menuData = [
+            {
+                id: 'familiar',
+                title: 'FAMILIAR',
+                icon: 'fa-fire-flame-curved',
+                subtitle: 'Porciones ideales para disfrutar en familia',
+                items: [
+                    { id: 'fam-1', name: 'Pollo', price: 240, desc: 'Asado al carbón con la receta de la casa.' },
+                    { id: 'fam-2', name: 'Costilla', note: '(según tamaño)', price: 290, desc: 'Jugosa costilla asada lentamente a las brasas.' },
+                    { id: 'fam-3', name: 'Conejo', price: 490, desc: 'Especialidad al carbón de sabor inigualable.' },
+                    { id: 'fam-4', name: '1 kg. Chorizo Argentino', price: 420, desc: 'Un kilo de chorizo argentino asado a la parrilla.' },
+                    { id: 'fam-5', name: '1 kg. Arrachera', price: 430, desc: 'Un kilo de arrachera marinada y suave al carbón.' },
+                    { id: 'fam-6', name: '1 kg. Chistorra', price: 370, desc: 'Un kilo de chistorra dorada a las brasas.' }
+                ]
+            },
+            {
+                id: 'cortes',
+                title: 'CORTES DE CARNE',
+                icon: 'fa-bacon',
+                subtitle: 'Cortes selectos asados al término de tu elección',
+                items: [
+                    { id: 'cor-1', name: 'Ryb-Eye', price: 300, desc: 'Corte fino con excelente marmoleo y jugosidad.' },
+                    { id: 'cor-2', name: 'New York', price: 300, desc: 'Corte firme y lleno de sabor a parrilla.' },
+                    { id: 'cor-3', name: 'T-Bone', price: 300, desc: 'Lo mejor del filete y el New York en un solo corte.' },
+                    { id: 'cor-4', name: 'Tomahawk', price: 610, badge: 'Especialidad', desc: 'Imponente corte con hueso, ideal para los amantes del fuego.' }
+                ]
+            },
+            {
+                id: 'compartir',
+                title: 'PARA COMPARTIR',
+                icon: 'fa-utensils',
+                subtitle: 'El punto medio perfecto para acompañar al centro',
+                items: [
+                    { id: 'com-1', name: 'Pollo 1/2', price: 135, desc: 'Medio pollo asado a las brasas.' },
+                    { id: 'com-2', name: 'Conejo 1/2', price: 275, desc: 'Medio conejo preparado a la parrilla.' },
+                    { id: 'com-3', name: 'Arrachera (500grs)', price: 225, desc: 'Medio kilo de arrachera suave y jugosa.' },
+                    { id: 'com-4', name: 'Chistorra', price: 185, desc: 'Porción de chistorra asada para compartir.' },
+                    { id: 'com-5', name: 'Chorizo Argentino (4pz)', price: 215, desc: '4 piezas de chorizo argentino al carbón.' },
+                    { id: 'com-6', name: 'Costilla', price: 165, desc: 'Porción de costilla a la parrilla para compartir.' }
+                ]
+            },
+            {
+                id: 'parrillada',
+                title: 'PARRILLADA MIXTA',
+                icon: 'fa-fire-burner',
+                subtitle: 'Combinación de nuestras mejores carnes sobre las brasas',
+                items: [
+                    { id: 'par-1', name: 'Parrillada Mixta Grande', price: 1650, badge: 'Banquete', desc: 'Nuestra parrillada más completa para grupos grandes.' },
+                    { id: 'par-2', name: 'Parrillada Mixta Mediana', price: 900, desc: 'Excelente variedad de carnes asadas para compartir.' },
+                    { id: 'par-3', name: 'Parrillada Mixta Chica', price: 600, desc: 'Combinación ideal para 2 o 3 personas.' }
+                ]
+            },
+            {
+                id: 'individual',
+                title: 'INDIVIDUAL',
+                icon: 'fa-plate-wheat',
+                subtitle: 'Porciones personales recién salidas del asador',
+                items: [
+                    { id: 'ind-1', name: 'Pollo 1/4', price: 110, desc: 'Un cuarto de pollo asado al carbón.' },
+                    { id: 'ind-2', name: 'Arrachera (300grs)', price: 130, desc: '300 gramos de arrachera asada al momento.' },
+                    { id: 'ind-3', name: 'Chistorra Individual', price: 110, desc: 'Orden individual de chistorra a las brasas.' },
+                    { id: 'ind-4', name: 'Costilla Individual', price: 110, desc: 'Orden individual de costilla asada.' },
+                    { id: 'ind-5', name: 'Chorizo Argentino (2pz)', price: 120, desc: '2 piezas de chorizo argentino al carbón.' }
+                ]
+            },
+            {
+                id: 'mixotes',
+                title: 'MIXOTES',
+                icon: 'fa-pepper-hot',
+                subtitle: 'Tradición y sazón cocinados lentamente al vapor y brasa',
+                items: [
+                    { id: 'mix-1', name: 'Mixote de Carnero', price: 130, desc: 'Suave carne de carnero con adobo tradicional.' },
+                    { id: 'mix-2', name: 'Mixote de Conejo', price: 130, desc: 'Receta especial de conejo en mixote.' },
+                    { id: 'mix-3', name: 'Mixote de Costilla', price: 110, desc: 'Costilla jugosa condimentada en hoja de mixote.' },
+                    { id: 'mix-4', name: 'Mixote de Pollo', price: 110, desc: 'Pollo tierno con todo el sabor tradicional.' }
+                ]
+            },
+            {
+                id: 'extras',
+                title: 'EXTRAS Y ENTRADAS',
+                icon: 'fa-cheese',
+                subtitle: 'Complementos al grill para elevar tu experiencia',
+                items: [
+                    { id: 'ext-1', name: 'Nopales', price: 35, desc: 'Tres Nopales con cebollas cabra y chile toreados.' },
+                    { id: 'ext-2', name: 'Ensalada Chica', price: 50, desc: 'Lechugas, zanahoria, betabel, jícama, cacahuate y aceite de olivo.' },
+                    { id: 'ext-3', name: 'Ensalada Grande', price: 75, desc: 'Lechugas, zanahoria, betabel, jícama, cacahuate y aceite de olivo.' },
+                    { id: 'ext-4', name: 'Queso Fundido Chico', price: 60, desc: 'Queso derretido a las brasas, tamaño chico.' },
+                    { id: 'ext-5', name: 'Queso Fundido Grande', price: 80, desc: 'Queso derretido a las brasas, tamaño grande.' },
+                    { id: 'ext-6', name: 'Aderezo', price: 25, desc: 'Mango tamarindo, BBQ y Enchilado.' },
+                    { id: 'ext-7', name: 'Jalapeños Grill (3PZ)', price: 90, badge: 'Favorito', desc: 'Chile toreado, relleno de queso manchego, Filadelfia y envuelto en tocino (3 piezas).' },
+                    { id: 'ext-8', name: 'Jalapeños Grill (1PZ)', price: 35, desc: 'Chile toreado, relleno de queso manchego, Filadelfia y envuelto en tocino (1 pieza).' },
+                    { id: 'ext-9', name: 'Papas Grill', price: 90, desc: 'Rellena de tres quesos con tocino (1 pz.).' },
+                    { id: 'ext-10', name: 'Papa Especial', price: 160, badge: 'Especial', desc: 'Preparada con arrachera, chistorra y chorizo argentino.' }
+                ]
+            },
+            {
+                id: 'bebidas',
+                title: 'BEBIDAS',
+                icon: 'fa-beer-mug-empty',
+                subtitle: 'Aguas frescas, preparados y micheladas bien frías',
+                items: [
+                    { id: 'beb-1', name: 'Horchata con Nuez', price: 45, desc: 'Agua fresca cremosa con trozos de nuez.' },
+                    { id: 'beb-2', name: 'Tamarindo', price: 45, desc: 'Agua fresca natural de tamarindo.' },
+                    { id: 'beb-3', name: 'Jamaica', price: 45, desc: 'Agua fresca natural de flor de jamaica.' },
+                    { id: 'beb-4', name: 'Cítricos', price: 45, desc: 'Refrescante combinación de frutas cítricas.' },
+                    { id: 'beb-5', name: 'Sangría Preparada', price: 65, desc: 'Receta refrescante con toque de la casa.' },
+                    { id: 'beb-6', name: 'Tehuacán Preparado', price: 65, desc: 'Agua mineral preparada con limón y sal.' },
+                    { id: 'beb-7', name: 'Michelada Cubana', price: 110, badge: 'Especial', desc: 'Preparada con mezcla de salsas, limón y escarchado especial.' },
+                    { id: 'beb-8', name: 'Michelada Sal y Limón', price: 100, desc: 'Clásica michelada bien fría con limón y escarchado de sal.' }
+                ]
+            }
+        ];
+
+        const STORAGE_KEY = 'la_obrera_order_session_v2';
+
+        // Estado principal de la sesión (persistente en localStorage)
+        let sessionState = {
+            isRegistered: false,
+            serviceType: 'Mesa 1',
+            deliveryAddress: {
+                street: '',
+                colony: '',
+                reference: ''
+            },
+            notes: '',
+            folio: '',
+            splitSharedEqually: false,
+            activeDinerId: null,
+            // Lista de comensales: { id, fullName, isShared: false, cart: { [itemId]: qty } }
+            diners: []
+        };
+
+        let activeCategory = 'todos';
+        let searchQuery = '';
+        let pendingDishToAddAfterReg = null;
+        let currentTicketPlainText = '';
+
+        // Inicialización al cargar la página
+        window.onload = function() {
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+            createEmberParticles();
+            loadSessionFromStorage();
+            renderCategoryTabs();
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+
+            // Si el usuario aún no ha registrado su Nombre Completo, mostrar el Modal de Bienvenida
+            if (!sessionState.isRegistered || sessionState.diners.length === 0) {
+                openRegistrationModal(true);
+            }
+        };
+
+        // Guardar y cargar en localStorage
+        function saveSessionToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionState));
+            } catch (e) {
+                console.warn('No se pudo guardar en localStorage', e);
+            }
+        }
+
+        function loadSessionFromStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && Array.isArray(parsed.diners) && parsed.diners.length > 0) {
+                        sessionState = {
+                            ...sessionState,
+                            ...parsed,
+                            deliveryAddress: parsed.deliveryAddress || { street: '', colony: '', reference: '' }
+                        };
+                        document.getElementById('split-shared-toggle').checked = !!sessionState.splitSharedEqually;
+                    }
+                }
+            } catch (e) {
+                console.warn('Error leyendo sesión previa', e);
+            }
+        }
+
+        // Mostrar u ocultar las 2 líneas de dirección cuando se selecciona Servicio a Domicilio
+        function isDeliveryService(serviceVal) {
+            return serviceVal === 'Servicio a Domicilio' || serviceVal === 'Envío a Domicilio';
+        }
+
+        function handleServiceTypeChange(val) {
+            const deliveryBox = document.getElementById('delivery-address-fields');
+            const errEl = document.getElementById('reg-delivery-error-msg');
+            if (errEl) errEl.classList.add('hidden');
+
+            if (isDeliveryService(val)) {
+                deliveryBox.classList.remove('hidden');
+            } else {
+                deliveryBox.classList.add('hidden');
+            }
+        }
+
+        // Validar que sea un Nombre Completo (mínimo 2 palabras o al menos 4 caracteres reales)
+        function isValidFullName(name) {
+            if (!name) return false;
+            const clean = name.trim().replace(/\s+/g, ' ');
+            const words = clean.split(' ');
+            return words.length >= 2 && clean.length >= 5;
+        }
+
+        // Generar Folio Único para el pedido
+        function generateFolio() {
+            const num = Math.floor(1000 + Math.random() * 9000);
+            return `OBR-${num}`;
+        }
+
+        // Abrir Modal de Registro Inicial o Edición de Mesa
+        function openRegistrationModal(isInitial) {
+            const modal = document.getElementById('registration-modal');
+            const closeBtn = document.getElementById('close-reg-modal-btn');
+            const mainInput = document.getElementById('reg-main-fullname');
+            const serviceSelect = document.getElementById('reg-service-type');
+            const notesInput = document.getElementById('reg-notes');
+            const extraContainer = document.getElementById('extra-persons-inputs-container');
+            const streetInput = document.getElementById('reg-delivery-street');
+            const colonyInput = document.getElementById('reg-delivery-colony');
+            const refInput = document.getElementById('reg-delivery-reference');
+
+            document.getElementById('reg-error-msg').classList.add('hidden');
+            document.getElementById('reg-delivery-error-msg').classList.add('hidden');
+            extraContainer.innerHTML = '';
+
+            if (sessionState.isRegistered && sessionState.diners.length > 0) {
+                closeBtn.classList.remove('hidden');
+                closeBtn.classList.add('flex');
+
+                const realDiners = sessionState.diners.filter(d => !d.isShared);
+                if (realDiners[0]) {
+                    mainInput.value = realDiners[0].fullName;
+                }
+                const currentService = isDeliveryService(sessionState.serviceType) ? 'Servicio a Domicilio' : (sessionState.serviceType || 'Mesa 1');
+                serviceSelect.value = currentService;
+                notesInput.value = sessionState.notes || '';
+
+                if (sessionState.deliveryAddress) {
+                    streetInput.value = sessionState.deliveryAddress.street || '';
+                    colonyInput.value = sessionState.deliveryAddress.colony || '';
+                    refInput.value = sessionState.deliveryAddress.reference || '';
+                }
+                handleServiceTypeChange(currentService);
+
+                for (let i = 1; i < realDiners.length; i++) {
+                    addExtraPersonInputRow(realDiners[i].fullName, realDiners[i].id);
+                }
+            } else {
+                closeBtn.classList.add('hidden');
+                closeBtn.classList.remove('flex');
+                mainInput.value = '';
+                notesInput.value = '';
+                streetInput.value = '';
+                colonyInput.value = '';
+                refInput.value = '';
+                handleServiceTypeChange(serviceSelect.value);
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => mainInput.focus(), 100);
+        }
+
+        function closeRegistrationModal() {
+            if (!sessionState.isRegistered) return;
+            document.getElementById('registration-modal').classList.add('hidden');
+        }
+
+        // Añadir fila de input para comensal adicional en el modal de registro
+        function addExtraPersonInputRow(prefillName = '', existingId = '') {
+            const container = document.getElementById('extra-persons-inputs-container');
+            const index = container.children.length + 2;
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 extra-person-row';
+            if (existingId) row.dataset.dinerId = existingId;
+
+            row.innerHTML = `
+                <div class="relative flex-grow">
+                    <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-amber-400/80 text-xs"></i>
+                    <input type="text" 
+                           value="${prefillName}"
+                           placeholder="Nombre Completo Persona ${index} (Ej. Ana López)" 
+                           class="extra-person-input w-full pl-8 pr-3 py-2 bg-charcoal border border-stone-700 focus:border-ember rounded-xl text-xs text-white placeholder-stone-500 focus:outline-none">
+                </div>
+                <button type="button" onclick="this.parentElement.remove()" class="w-8 h-8 rounded-xl bg-stone-800 hover:bg-red-950 text-stone-400 hover:text-red-400 flex items-center justify-center shrink-0 transition" title="Quitar persona">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        // Guardar Registro Inicial / Edición de Mesa y Comensales
+        function handleInitialRegistration(event) {
+            event.preventDefault();
+            const mainNameInput = document.getElementById('reg-main-fullname');
+            const serviceSelect = document.getElementById('reg-service-type');
+            const notesInput = document.getElementById('reg-notes');
+            const errorMsg = document.getElementById('reg-error-msg');
+            const deliveryErrorMsg = document.getElementById('reg-delivery-error-msg');
+            const streetInput = document.getElementById('reg-delivery-street');
+            const colonyInput = document.getElementById('reg-delivery-colony');
+            const refInput = document.getElementById('reg-delivery-reference');
+
+            const selectedService = serviceSelect.value;
+
+            // Validar campos de Servicio a Domicilio si fue seleccionado
+            if (isDeliveryService(selectedService)) {
+                const streetVal = streetInput.value.trim();
+                const colonyVal = colonyInput.value.trim();
+                const refVal = refInput.value.trim();
+
+                if (streetVal.length < 3 || colonyVal.length < 2 || refVal.length < 3) {
+                    deliveryErrorMsg.classList.remove('hidden');
+                    if (streetVal.length < 3) streetInput.focus();
+                    else if (colonyVal.length < 2) colonyInput.focus();
+                    else refInput.focus();
+                    return;
+                }
+                deliveryErrorMsg.classList.add('hidden');
+                sessionState.deliveryAddress = {
+                    street: streetVal,
+                    colony: colonyVal,
+                    reference: refVal
+                };
+            } else {
+                deliveryErrorMsg.classList.add('hidden');
+                sessionState.deliveryAddress = { street: '', colony: '', reference: '' };
+            }
+
+            const mainFullName = mainNameInput.value.trim().replace(/\s+/g, ' ');
+            if (!isValidFullName(mainFullName)) {
+                errorMsg.classList.remove('hidden');
+                mainNameInput.focus();
+                return;
+            }
+            errorMsg.classList.add('hidden');
+
+            // Conservar carritos existentes si se está editando
+            const previousDinersMap = {};
+            sessionState.diners.forEach(d => {
+                previousDinersMap[d.id] = d;
+            });
+
+            const newDinersList = [];
+
+            // Titular (Persona 1)
+            const existingMain = sessionState.diners.find(d => !d.isShared);
+            const mainId = existingMain ? existingMain.id : 'diner-1';
+            newDinersList.push({
+                id: mainId,
+                fullName: mainFullName,
+                isShared: false,
+                cart: existingMain ? existingMain.cart : {}
+            });
+
+            // Personas adicionales ingresadas en las filas
+            const extraRows = document.querySelectorAll('.extra-person-row');
+            extraRows.forEach((row, idx) => {
+                const input = row.querySelector('.extra-person-input');
+                const val = input ? input.value.trim().replace(/\s+/g, ' ') : '';
+                if (val.length >= 2) {
+                    const existingId = row.dataset.dinerId;
+                    const dinerId = existingId || `diner-${Date.now()}-${idx}`;
+                    const prevCart = (existingId && previousDinersMap[existingId]) ? previousDinersMap[existingId].cart : {};
+                    newDinersList.push({
+                        id: dinerId,
+                        fullName: val,
+                        isShared: false,
+                        cart: prevCart
+                    });
+                }
+            });
+
+            // Cuenta especial para "Al Centro / Compartido"
+            const existingShared = sessionState.diners.find(d => d.isShared);
+            newDinersList.push({
+                id: 'shared-center',
+                fullName: 'Al Centro / Compartido',
+                isShared: true,
+                cart: existingShared ? existingShared.cart : {}
+            });
+
+            sessionState.isRegistered = true;
+            sessionState.serviceType = serviceSelect.value;
+            sessionState.notes = notesInput.value.trim();
+            if (!sessionState.folio) sessionState.folio = generateFolio();
+            sessionState.diners = newDinersList;
+
+            // Asegurar comensal activo válido
+            if (!sessionState.activeDinerId || !sessionState.diners.some(d => d.id === sessionState.activeDinerId)) {
+                sessionState.activeDinerId = newDinersList[0].id;
+            }
+
+            saveSessionToStorage();
+            document.getElementById('registration-modal').classList.add('hidden');
+
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+
+            // Si había un platillo pendiente de agregar antes de registrarse, agregarlo ahora
+            if (pendingDishToAddAfterReg) {
+                const itemId = pendingDishToAddAfterReg;
+                pendingDishToAddAfterReg = null;
+                addToOrder(itemId);
+            } else {
+                showToast(`¡Bienvenido, ${mainFullName}! Ya puedes ordenar.`);
+            }
+        }
+
+        // Modal rápido para agregar otra persona en cualquier momento
+        function openAddPersonModal() {
+            if (!sessionState.isRegistered) {
+                openRegistrationModal(true);
+                return;
+            }
+            const modal = document.getElementById('add-person-modal');
+            const input = document.getElementById('quick-person-fullname');
+            document.getElementById('quick-person-error').classList.add('hidden');
+            input.value = '';
+            modal.classList.remove('hidden');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function closeAddPersonModal() {
+            document.getElementById('add-person-modal').classList.add('hidden');
+        }
+
+        function handleQuickAddPerson(event) {
+            event.preventDefault();
+            const input = document.getElementById('quick-person-fullname');
+            const error = document.getElementById('quick-person-error');
+            const fullName = input.value.trim().replace(/\s+/g, ' ');
+
+            if (!isValidFullName(fullName)) {
+                error.classList.remove('hidden');
+                input.focus();
+                return;
+            }
+
+            const newDiner = {
+                id: 'diner-' + Date.now(),
+                fullName: fullName,
+                isShared: false,
+                cart: {}
+            };
+
+            // Insertar antes de la opción "Al Centro / Compartido"
+            const sharedIndex = sessionState.diners.findIndex(d => d.isShared);
+            if (sharedIndex !== -1) {
+                sessionState.diners.splice(sharedIndex, 0, newDiner);
+            } else {
+                sessionState.diners.push(newDiner);
+            }
+
+            sessionState.activeDinerId = newDiner.id;
+            saveSessionToStorage();
+            closeAddPersonModal();
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+            showToast(`Cuenta creada para: ${fullName}`);
+        }
+
+        // Cambiar la persona activa que está pidiendo en el menú
+        function selectActiveDiner(dinerId) {
+            sessionState.activeDinerId = dinerId;
+            saveSessionToStorage();
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+            const active = getActiveDiner();
+            if (active) {
+                showToast(`Pidiendo ahora para: ${active.fullName}`);
+            }
+        }
+
+        function getActiveDiner() {
+            if (!sessionState.diners || sessionState.diners.length === 0) return null;
+            return sessionState.diners.find(d => d.id === sessionState.activeDinerId) || sessionState.diners[0];
+        }
+
+        // Calcular subtotal de un comensal específico
+        function getDinerSubtotal(diner) {
+            if (!diner || !diner.cart) return 0;
+            let total = 0;
+            for (const [itemId, qty] of Object.entries(diner.cart)) {
+                const dish = findDishById(itemId);
+                if (dish && qty > 0) {
+                    total += dish.price * qty;
+                }
+            }
+            return total;
+        }
+
+        // Calcular parte proporcional de platillos "Al Centro" si la opción está activa
+        function getSharedSharePerPerson() {
+            const sharedDiner = sessionState.diners.find(d => d.isShared);
+            if (!sharedDiner) return 0;
+            const sharedTotal = getDinerSubtotal(sharedDiner);
+            if (sharedTotal === 0) return 0;
+            const realDinersCount = sessionState.diners.filter(d => !d.isShared).length;
+            if (realDinersCount === 0) return 0;
+            return sharedTotal / realDinersCount;
+        }
+
+        // Renderizar la barra superior de comensales (chips de cada persona)
+        function renderDinersBar() {
+            const chipsContainer = document.getElementById('diners-chips-bar');
+            const navTableLabel = document.getElementById('nav-table-label');
+            const activeNameEl = document.getElementById('active-diner-summary-name');
+            const activeSubtotalEl = document.getElementById('active-diner-summary-subtotal');
+            const drawerTableBadge = document.getElementById('drawer-table-badge');
+
+            if (!sessionState.isRegistered || sessionState.diners.length === 0) {
+                navTableLabel.textContent = 'Registrar Nombre';
+                activeNameEl.textContent = 'Sin registrar';
+                activeSubtotalEl.textContent = '$0';
+                chipsContainer.innerHTML = `
+                    <button onclick="openRegistrationModal(true)" class="px-3 py-1 rounded-full bg-ember text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow">
+                        <i class="fa-solid fa-user-check"></i>
+                        <span>Registrar tu Nombre Completo para Pedir</span>
+                    </button>
+                `;
+                return;
+            }
+
+            const realDinersCount = sessionState.diners.filter(d => !d.isShared).length;
+            if (isDeliveryService(sessionState.serviceType) && sessionState.deliveryAddress && sessionState.deliveryAddress.colony) {
+                navTableLabel.textContent = `🛵 Domicilio: ${sessionState.deliveryAddress.colony} (${realDinersCount} pers.)`;
+            } else {
+                navTableLabel.textContent = `${sessionState.serviceType} (${realDinersCount} pers.)`;
+            }
+            if (drawerTableBadge) drawerTableBadge.textContent = sessionState.serviceType;
+
+            // Mostrar u ocultar bloque de dirección en el Drawer
+            const drawerDeliveryBox = document.getElementById('drawer-delivery-info-box');
+            if (drawerDeliveryBox) {
+                if (isDeliveryService(sessionState.serviceType) && sessionState.deliveryAddress && sessionState.deliveryAddress.street) {
+                    drawerDeliveryBox.classList.remove('hidden');
+                    document.getElementById('drawer-delivery-line1').textContent = `${sessionState.deliveryAddress.street}, Col. ${sessionState.deliveryAddress.colony}`;
+                    document.getElementById('drawer-delivery-line2').textContent = `Ref: ${sessionState.deliveryAddress.reference}`;
+                    const phoneEl = document.getElementById('drawer-delivery-phone');
+                    if (phoneEl) {
+                        phoneEl.textContent = sessionState.notes ? `Tel: ${sessionState.notes}` : '';
+                    }
+                } else {
+                    drawerDeliveryBox.classList.add('hidden');
+                }
+            }
+
+            const activeDiner = getActiveDiner();
+            if (activeDiner) {
+                activeNameEl.textContent = activeDiner.fullName;
+                const sub = getDinerSubtotal(activeDiner);
+                activeSubtotalEl.textContent = `$${sub}`;
+            }
+
+            chipsContainer.innerHTML = sessionState.diners.map(diner => {
+                const isSelected = activeDiner && activeDiner.id === diner.id;
+                const subtotal = getDinerSubtotal(diner);
+                const itemCount = Object.values(diner.cart || {}).reduce((a, b) => a + b, 0);
+
+                return `
+                    <button onclick="selectActiveDiner('${diner.id}')"
+                            class="shrink-0 px-3 py-1 rounded-full text-xs transition flex items-center gap-1.5 border ${
+                                isSelected
+                                ? 'bg-gradient-to-r from-ember to-amber-600 text-white border-amber-300 font-bold shadow-md shadow-ember/30'
+                                : 'bg-coal/90 text-stone-300 border-stone-700 hover:border-amber-500/50 hover:text-white'
+                            }">
+                        <i class="fa-solid ${diner.isShared ? 'fa-people-group' : 'fa-user'} text-[10px] ${isSelected ? 'text-white' : 'text-amber-400'}"></i>
+                        <span class="truncate max-w-[140px]">${diner.fullName}</span>
+                        ${itemCount > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${isSelected ? 'bg-black/40 text-amber-200' : 'bg-stone-800 text-amber-400'}">$${subtotal}</span>` : ''}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // Renderizar pestañas de categorías del menú
+        function renderCategoryTabs() {
+            const container = document.getElementById('category-tabs');
+            const categories = [
+                { id: 'todos', title: 'Todos', icon: 'fa-grip' },
+                ...menuData.map(sec => ({ id: sec.id, title: sec.title, icon: sec.icon }))
+            ];
+
+            container.innerHTML = categories.map(cat => {
+                const isActive = activeCategory === cat.id;
+                return `
+                    <button onclick="selectCategory('${cat.id}')"
+                            class="shrink-0 px-3 py-1 rounded-full text-xs font-heading tracking-wider uppercase transition flex items-center gap-1.5 border ${
+                                isActive 
+                                ? 'bg-gradient-to-r from-ember to-amber-600 text-white border-amber-400 shadow-md shadow-ember/30 font-bold' 
+                                : 'bg-charcoal text-stone-300 border-stone-800 hover:border-stone-600 hover:text-white'
+                            }">
+                        <i class="fa-solid ${cat.icon} ${isActive ? 'text-white' : 'text-ember'} text-[11px]"></i>
+                        <span>${cat.title}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectCategory(catId) {
+            activeCategory = catId;
+            renderCategoryTabs();
+            renderMenuSections();
+        }
+
+        function handleSearch(val) {
+            searchQuery = val.trim().toLowerCase();
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderMenuSections();
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            input.value = '';
+            handleSearch('');
+        }
+
+        function resetFilters() {
+            activeCategory = 'todos';
+            clearSearch();
+            renderCategoryTabs();
+            renderMenuSections();
+        }
+
+        // Obtener cuántos platillos de un ID se han pedido en toda la mesa
+        function getTotalTableQtyForDish(itemId) {
+            return sessionState.diners.reduce((sum, d) => sum + ((d.cart && d.cart[itemId]) ? d.cart[itemId] : 0), 0);
+        }
+
+        // Renderizar secciones y platillos del menú mostrando lo que lleva la persona activa
+        function renderMenuSections() {
+            const container = document.getElementById('menu-sections-container');
+            const emptyState = document.getElementById('empty-search-state');
+            const activeDiner = getActiveDiner();
+
+            const filteredSections = menuData
+                .filter(sec => activeCategory === 'todos' || sec.id === activeCategory)
+                .map(sec => {
+                    const matchedItems = sec.items.filter(item => {
+                        if (!searchQuery) return true;
+                        return item.name.toLowerCase().includes(searchQuery) ||
+                               (item.desc && item.desc.toLowerCase().includes(searchQuery)) ||
+                               (item.note && item.note.toLowerCase().includes(searchQuery));
+                    });
+                    return { ...sec, items: matchedItems };
+                })
+                .filter(sec => sec.items.length > 0);
+
+            if (filteredSections.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            container.innerHTML = filteredSections.map(section => `
+                <div class="bg-charcoal/80 border border-stone-800/90 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute -top-10 -right-10 w-28 h-28 bg-ember/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <div>
+                        <!-- Encabezado de la Categoría -->
+                        <div class="border-b border-orange-500/30 pb-3 mb-4 flex items-center justify-between">
+                            <div>
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-ember to-red-800 text-white flex items-center justify-center shadow-md shadow-ember/20">
+                                        <i class="fa-solid ${section.icon} text-sm"></i>
+                                    </span>
+                                    <h2 class="font-heading text-2xl sm:text-3xl font-bold tracking-wider text-amber-400 uppercase">
+                                        ${section.title}
+                                    </h2>
+                                </div>
+                                <p class="text-stone-400 text-xs mt-1">${section.subtitle}</p>
+                            </div>
+                            <span class="text-[11px] font-heading uppercase tracking-widest text-stone-500 bg-stone-900 px-2.5 py-1 rounded-full border border-stone-800">
+                                ${section.items.length} opciones
+                            </span>
+                        </div>
+
+                        <!-- Lista de Platillos -->
+                        <div class="space-y-3.5">
+                            ${section.items.map(item => {
+                                const qtyForActiveDiner = (activeDiner && activeDiner.cart && activeDiner.cart[item.id]) ? activeDiner.cart[item.id] : 0;
+                                const totalTableQty = getTotalTableQtyForDish(item.id);
+                                const otherDinersQty = totalTableQty - qtyForActiveDiner;
+
+                                return `
+                                    <div class="dish-card rounded-xl p-3.5 border ${qtyForActiveDiner > 0 ? 'border-amber-500/60' : 'border-stone-800/80'} flex items-center justify-between gap-3">
+                                        <div class="flex-grow min-w-0">
+                                            <div class="flex items-baseline justify-between gap-2">
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <h3 class="font-heading text-base sm:text-lg font-semibold text-white tracking-wide">
+                                                        ${item.name}
+                                                    </h3>
+                                                    ${item.note ? `<span class="text-xs text-stone-400 italic">${item.note}</span>` : ''}
+                                                    ${item.badge ? `<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-ember/20 text-amber-300 border border-ember/40">${item.badge}</span>` : ''}
+                                                </div>
+                                                <span class="flex-grow menu-dots mx-1 hidden sm:block"></span>
+                                                <span class="font-heading text-lg sm:text-xl font-bold text-amber-400 shrink-0">
+                                                    $${item.price}
+                                                </span>
+                                            </div>
+                                            ${item.desc ? `<p class="text-stone-400 text-xs mt-1 leading-relaxed">${item.desc}</p>` : ''}
+                                            ${otherDinersQty > 0 ? `
+                                                <span class="inline-block mt-1.5 text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                                                    <i class="fa-solid fa-users mr-1"></i>+${otherDinersQty} pedido(s) en otras cuentas de la mesa
+                                                </span>
+                                            ` : ''}
+                                        </div>
+
+                                        <!-- Botón Agregar / Contador para la Persona Activa -->
+                                        <div class="shrink-0 flex flex-col items-end">
+                                            ${qtyForActiveDiner === 0 ? `
+                                                <button onclick="addToOrder('${item.id}')" 
+                                                        class="px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-ember text-stone-200 hover:text-white border border-stone-700 hover:border-amber-400 text-xs font-heading uppercase tracking-wider transition flex items-center gap-1 shadow">
+                                                    <i class="fa-solid fa-plus text-[10px]"></i>
+                                                    <span>Agregar</span>
+                                                </button>
+                                            ` : `
+                                                <div class="flex items-center gap-1.5 bg-coal border border-amber-500/60 rounded-xl p-1">
+                                                    <button onclick="changeDinerItemQty('${activeDiner.id}', '${item.id}', -1)" class="w-6 h-6 rounded-lg bg-stone-800 hover:bg-stone-700 text-white text-xs flex items-center justify-center">
+                                                        <i class="fa-solid fa-minus"></i>
+                                                    </button>
+                                                    <span class="font-heading font-bold text-sm text-amber-400 px-1.5">${qtyForActiveDiner}</span>
+                                                    <button onclick="changeDinerItemQty('${activeDiner.id}', '${item.id}', 1)" class="w-6 h-6 rounded-lg bg-ember hover:bg-orange-600 text-white text-xs flex items-center justify-center">
+                                                        <i class="fa-solid fa-plus"></i>
+                                                    </button>
+                                                </div>
+                                                <span class="text-[10px] text-amber-400/90 mt-1 truncate max-w-[95px]">
+                                                    ${activeDiner.fullName.split(' ')[0]}
+                                                </span>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function findDishById(itemId) {
+            for (const sec of menuData) {
+                const found = sec.items.find(i => i.id === itemId);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        // Agregar platillo a la cuenta de la persona activa (verificando primero que esté registrado su Nombre Completo)
+        function addToOrder(itemId) {
+            if (!sessionState.isRegistered || sessionState.diners.length === 0) {
+                pendingDishToAddAfterReg = itemId;
+                openRegistrationModal(true);
+                return;
+            }
+
+            const dish = findDishById(itemId);
+            const activeDiner = getActiveDiner();
+            if (!dish || !activeDiner) return;
+
+            if (!activeDiner.cart) activeDiner.cart = {};
+            activeDiner.cart[itemId] = (activeDiner.cart[itemId] || 0) + 1;
+
+            saveSessionToStorage();
+            showToast(`+1 ${dish.name} → Cuenta de ${activeDiner.fullName}`);
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+        }
+
+        // Cambiar cantidad de un platillo en la cuenta de un comensal específico
+        function changeDinerItemQty(dinerId, itemId, delta) {
+            const diner = sessionState.diners.find(d => d.id === dinerId);
+            if (!diner || !diner.cart) return;
+
+            const current = diner.cart[itemId] || 0;
+            const next = current + delta;
+            if (next <= 0) {
+                delete diner.cart[itemId];
+            } else {
+                diner.cart[itemId] = next;
+            }
+
+            saveSessionToStorage();
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+        }
+
+        // Eliminar a una persona adicional si no es el titular único
+        function removeDinerAccount(dinerId) {
+            const realDiners = sessionState.diners.filter(d => !d.isShared);
+            if (realDiners.length <= 1) {
+                showToast('Debe haber al menos 1 persona registrada en la mesa');
+                return;
+            }
+            sessionState.diners = sessionState.diners.filter(d => d.id !== dinerId);
+            if (sessionState.activeDinerId === dinerId) {
+                sessionState.activeDinerId = sessionState.diners[0].id;
+            }
+            saveSessionToStorage();
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+            showToast('Cuenta eliminada de la mesa');
+        }
+
+        function toggleSplitShared(checked) {
+            sessionState.splitSharedEqually = checked;
+            saveSessionToStorage();
+            updateOrderUI();
+        }
+
+        // Actualizar toda la interfaz de Cuentas por Persona (Drawer, contadores y barra flotante)
+        function updateOrderUI() {
+            let grandTotalItems = 0;
+            let grandTotalPrice = 0;
+            let dinersWithItemsCount = 0;
+
+            sessionState.diners.forEach(diner => {
+                const sub = getDinerSubtotal(diner);
+                const count = Object.values(diner.cart || {}).reduce((a, b) => a + b, 0);
+                grandTotalItems += count;
+                grandTotalPrice += sub;
+                if (count > 0) dinersWithItemsCount++;
+            });
+
+            document.getElementById('nav-order-badge').textContent = grandTotalItems;
+            document.getElementById('floating-count').textContent = grandTotalItems;
+            document.getElementById('floating-total').textContent = `$${grandTotalPrice}`;
+            document.getElementById('drawer-items-count').textContent = grandTotalItems;
+            document.getElementById('drawer-diners-count').textContent = dinersWithItemsCount;
+            document.getElementById('drawer-total-price').textContent = `$${grandTotalPrice}`;
+
+            const floatingSubtext = document.getElementById('floating-subtext');
+            if (floatingSubtext) {
+                floatingSubtext.textContent = `${sessionState.serviceType} • ${dinersWithItemsCount} cuenta(s) con pedido`;
+            }
+
+            const floatingBar = document.getElementById('floating-order-bar');
+            if (grandTotalItems > 0) {
+                floatingBar.classList.remove('hidden');
+            } else {
+                floatingBar.classList.add('hidden');
+            }
+
+            // Renderizar tarjetas separadas por persona en el Drawer
+            const listContainer = document.getElementById('order-items-list');
+            if (!sessionState.isRegistered || sessionState.diners.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center py-12 text-stone-400">
+                        <i class="fa-solid fa-user-lock text-3xl text-ember mb-2"></i>
+                        <p class="font-heading text-base uppercase text-white">Registra tu Nombre Completo</p>
+                        <p class="text-xs mt-1">Para comenzar tu pedido, registra tu nombre y mesa.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const sharedShare = sessionState.splitSharedEqually ? getSharedSharePerPerson() : 0;
+            const realDinersCount = sessionState.diners.filter(d => !d.isShared).length;
+
+            listContainer.innerHTML = sessionState.diners.map(diner => {
+                const entries = Object.entries(diner.cart || {})
+                    .map(([itemId, qty]) => ({ item: findDishById(itemId), qty }))
+                    .filter(e => e.item && e.qty > 0);
+
+                const ownSubtotal = getDinerSubtotal(diner);
+                const finalPersonTotal = (!diner.isShared && sessionState.splitSharedEqually)
+                    ? ownSubtotal + sharedShare
+                    : ownSubtotal;
+
+                const isSelected = sessionState.activeDinerId === diner.id;
+
+                return `
+                    <div class="bg-coal border ${isSelected ? 'border-amber-500/70' : 'border-stone-800'} rounded-2xl overflow-hidden shadow-lg">
+                        <!-- Cabecera de la Cuenta de la Persona -->
+                        <div class="p-3 bg-stone-900/90 border-b border-stone-800 flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-7 h-7 rounded-lg ${diner.isShared ? 'bg-amber-500/20 text-amber-300' : 'bg-ember/20 text-ember'} flex items-center justify-center text-xs shrink-0">
+                                    <i class="fa-solid ${diner.isShared ? 'fa-people-group' : 'fa-user'}"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1.5">
+                                        <h4 class="font-heading text-sm sm:text-base font-bold text-white truncate">${diner.fullName}</h4>
+                                        ${isSelected ? `<span class="text-[9px] uppercase tracking-wider bg-ember text-white px-1.5 py-0.5 rounded font-bold">Activo</span>` : ''}
+                                    </div>
+                                    <span class="text-[11px] text-stone-400">
+                                        ${diner.isShared ? 'Platillos para compartir en la mesa' : 'Cuenta individual por persona'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                ${!isSelected ? `
+                                    <button onclick="selectActiveDiner('${diner.id}')" 
+                                            class="px-2 py-1 rounded-lg bg-stone-800 hover:bg-ember text-stone-300 hover:text-white text-[10px] font-heading uppercase tracking-wider transition">
+                                        + Pedir aquí
+                                    </button>
+                                ` : ''}
+                                ${(!diner.isShared && realDinersCount > 1) ? `
+                                    <button onclick="removeDinerAccount('${diner.id}')" title="Eliminar esta persona" class="w-6 h-6 rounded-lg bg-stone-800 hover:bg-red-950 text-stone-400 hover:text-red-400 text-xs flex items-center justify-center">
+                                        <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Platillos de esta persona -->
+                        <div class="p-3 space-y-2">
+                            ${entries.length === 0 ? `
+                                <div class="text-center py-3 text-xs text-stone-500 flex items-center justify-between">
+                                    <span>Sin platillos registrados aún en esta cuenta.</span>
+                                    <button onclick="selectActiveDiner('${diner.id}'); toggleOrderDrawer();" class="text-amber-400 hover:underline font-semibold">
+                                        + Agregar platillos
+                                    </button>
+                                </div>
+                            ` : entries.map(({ item, qty }) => `
+                                <div class="flex items-center justify-between gap-2 py-1.5 border-b border-stone-800/60 last:border-0 text-xs">
+                                    <div class="min-w-0 flex-grow">
+                                        <span class="text-stone-200 font-medium block truncate">${item.name}</span>
+                                        <span class="text-[11px] text-stone-500">$${item.price} c/u</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <button onclick="changeDinerItemQty('${diner.id}', '${item.id}', -1)" class="w-6 h-6 rounded-md bg-stone-800 hover:bg-stone-700 text-white flex items-center justify-center">
+                                            <i class="fa-solid fa-minus text-[10px]"></i>
+                                        </button>
+                                        <span class="font-heading font-bold text-amber-400 w-4 text-center">${qty}</span>
+                                        <button onclick="changeDinerItemQty('${diner.id}', '${item.id}', 1)" class="w-6 h-6 rounded-md bg-ember hover:bg-orange-600 text-white flex items-center justify-center">
+                                            <i class="fa-solid fa-plus text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                    <div class="text-right w-14 shrink-0 font-heading font-bold text-amber-300 text-sm">
+                                        $${item.price * qty}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Pie de la Tarjeta Individual con Subtotal y Ticket por Persona -->
+                        <div class="px-3 py-2.5 bg-stone-950/90 border-t border-stone-800/80 flex items-center justify-between gap-2">
+                            <div>
+                                <span class="text-[11px] text-stone-400 block">
+                                    Subtotal de ${diner.fullName.split(' ')[0]}:
+                                    ${(!diner.isShared && sessionState.splitSharedEqually && sharedShare > 0) ? `<span class="text-amber-400">(+$${sharedShare.toFixed(0)} centro)</span>` : ''}
+                                </span>
+                                <span class="font-heading text-lg font-bold text-amber-400">
+                                    $${finalPersonTotal % 1 === 0 ? finalPersonTotal : finalPersonTotal.toFixed(2)} MXN
+                                </span>
+                            </div>
+
+                            ${entries.length > 0 ? `
+                                <button onclick="openIndividualPersonTicket('${diner.id}')" 
+                                        class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/40 text-xs font-heading uppercase tracking-wider font-bold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-receipt"></i>
+                                    <span>Cobrar Cuenta Individual</span>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Abrir / Cerrar Drawer de Cuentas
+        function toggleOrderDrawer() {
+            const drawer = document.getElementById('order-drawer');
+            const backdrop = document.getElementById('order-drawer-backdrop');
+            const isOpen = !drawer.classList.contains('translate-x-full');
+
+            if (isOpen) {
+                drawer.classList.add('translate-x-full');
+                backdrop.classList.add('hidden');
+            } else {
+                updateOrderUI();
+                drawer.classList.remove('translate-x-full');
+                backdrop.classList.remove('hidden');
+            }
+        }
+
+        // Generar Ticket Digital de 1 Sola Persona (Cuenta Individual)
+        function openIndividualPersonTicket(dinerId) {
+            const diner = sessionState.diners.find(d => d.id === dinerId);
+            if (!diner) return;
+
+            const entries = Object.entries(diner.cart || {})
+                .map(([itemId, qty]) => ({ item: findDishById(itemId), qty }))
+                .filter(e => e.item && e.qty > 0);
+
+            if (entries.length === 0) {
+                showToast('Esta persona aún no tiene platillos en su cuenta');
+                return;
+            }
+
+            if (!sessionState.folio) sessionState.folio = generateFolio();
+            const ownSubtotal = getDinerSubtotal(diner);
+            const sharedShare = (!diner.isShared && sessionState.splitSharedEqually) ? getSharedSharePerPerson() : 0;
+            const totalToPay = ownSubtotal + sharedShare;
+            const nowStr = new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+            const hasDelivery = isDeliveryService(sessionState.serviceType) && sessionState.deliveryAddress && sessionState.deliveryAddress.street;
+
+            document.getElementById('ticket-modal-title').textContent = `Cuenta Individual • ${diner.fullName}`;
+            document.getElementById('ticket-folio-subtitle').textContent = `Folio #${sessionState.folio} • ${sessionState.serviceType}`;
+
+            const printable = document.getElementById('ticket-printable-area');
+            printable.innerHTML = `
+                <div class="text-center border-b border-stone-700 pb-3">
+                    <h4 class="font-display font-bold text-lg text-amber-400">LA OBRERA GRILL ASADERO</h4>
+                    <p class="text-xs text-stone-400">${sessionState.serviceType} • ${nowStr}</p>
+                    ${sessionState.notes ? `<p class="text-xs text-amber-300 mt-0.5"><i class="fa-solid fa-phone mr-1"></i>Tel: ${sessionState.notes}</p>` : ''}
+                    ${hasDelivery ? `
+                        <div class="mt-2 bg-stone-900 border border-stone-700 rounded-xl p-2 text-left text-xs space-y-0.5">
+                            <p class="text-amber-400 font-bold"><i class="fa-solid fa-motorcycle mr-1"></i> Envío a Domicilio:</p>
+                            <p class="text-white"><strong>Ubicación:</strong> ${sessionState.deliveryAddress.street}, Col. ${sessionState.deliveryAddress.colony}</p>
+                            <p class="text-stone-300"><strong>Referencia:</strong> ${sessionState.deliveryAddress.reference}</p>
+                        </div>
+                    ` : ''}
+                    <div class="mt-2 inline-block bg-ember/20 border border-ember/50 text-amber-300 px-3 py-1 rounded-full text-xs font-bold">
+                        CUENTA INDIVIDUAL DE: ${diner.fullName.toUpperCase()}
+                    </div>
+                </div>
+
+                <div class="space-y-2 py-2">
+                    ${entries.map(({ item, qty }) => `
+                        <div class="flex justify-between items-center text-xs sm:text-sm border-b border-stone-800/70 pb-1.5">
+                            <div>
+                                <span class="font-bold text-amber-400">${qty}x</span>
+                                <span class="text-white font-medium ml-1">${item.name}</span>
+                                <span class="text-stone-500 text-xs ml-1">($${item.price} c/u)</span>
+                            </div>
+                            <span class="font-heading font-bold text-white">$${item.price * qty}</span>
+                        </div>
+                    `).join('')}
+
+                    ${sharedShare > 0 ? `
+                        <div class="flex justify-between items-center text-xs sm:text-sm text-amber-300 pt-1">
+                            <span>+ Parte proporcional "Al Centro / Compartido"</span>
+                            <span class="font-heading font-bold">$${sharedShare.toFixed(2)}</span>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="border-t border-stone-700 pt-3 flex items-center justify-between">
+                    <span class="font-heading text-base uppercase text-stone-300">Total a Pagar (${diner.fullName}):</span>
+                    <span class="font-heading text-2xl font-bold text-amber-400">$${totalToPay % 1 === 0 ? totalToPay : totalToPay.toFixed(2)} MXN</span>
+                </div>
+            `;
+
+            // Construir texto plano para WhatsApp / Portapapeles
+            let text = `🔥 *CUENTA INDIVIDUAL - LA OBRERA GRILL ASADERO* 🔥\n`;
+            text += `📋 *Folio:* #${sessionState.folio} | *${sessionState.serviceType}*\n`;
+            if (sessionState.notes) text += `📞 *Teléfono:* ${sessionState.notes}\n`;
+            if (hasDelivery) {
+                text += `📍 *Ubicación:* ${sessionState.deliveryAddress.street}, Col. ${sessionState.deliveryAddress.colony}\n`;
+                text += `🏠 *Referencia:* ${sessionState.deliveryAddress.reference}\n`;
+            }
+            text += `👤 *Comensal:* ${diner.fullName}\n`;
+            text += `────────────────────\n`;
+            entries.forEach(({ item, qty }) => {
+                text += `• ${qty}x ${item.name} — $${item.price * qty}\n`;
+            });
+            if (sharedShare > 0) {
+                text += `• Proporción Al Centro — $${sharedShare.toFixed(2)}\n`;
+            }
+            text += `────────────────────\n`;
+            text += `💰 *TOTAL DE ${diner.fullName.toUpperCase()}: $${totalToPay % 1 === 0 ? totalToPay : totalToPay.toFixed(2)} MXN*`;
+
+            currentTicketPlainText = text;
+            document.getElementById('ticket-modal').classList.remove('hidden');
+        }
+
+        // Generar Ticket Completo de la Mesa (Desglosado por cada Persona)
+        function openOrderConfirmationModal() {
+            const totalItems = sessionState.diners.reduce((acc, d) => acc + Object.values(d.cart || {}).reduce((a, b) => a + b, 0), 0);
+            if (totalItems === 0) {
+                showToast('Agrega al menos un platillo antes de confirmar el pedido');
+                return;
+            }
+
+            if (!sessionState.folio) sessionState.folio = generateFolio();
+            const nowStr = new Date().toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+            const sharedShare = sessionState.splitSharedEqually ? getSharedSharePerPerson() : 0;
+            const hasDelivery = isDeliveryService(sessionState.serviceType) && sessionState.deliveryAddress && sessionState.deliveryAddress.street;
+
+            document.getElementById('ticket-modal-title').textContent = 'Pedido Confirmado • Cuentas por Persona';
+            document.getElementById('ticket-folio-subtitle').textContent = `Folio #${sessionState.folio} • ${sessionState.serviceType}`;
+
+            let grandTotal = 0;
+            let htmlBlocks = '';
+            let waText = `🔥 *NUEVO PEDIDO WEB - LA OBRERA GRILL ASADERO* 🔥\n`;
+            waText += `📋 *Folio:* #${sessionState.folio}\n`;
+            waText += `🍽️ *Modalidad / Mesa:* ${sessionState.serviceType}\n`;
+            if (sessionState.notes) waText += `📞 *Teléfono:* ${sessionState.notes}\n`;
+            if (hasDelivery) {
+                waText += `📍 *Ubicación:* ${sessionState.deliveryAddress.street}, Col. ${sessionState.deliveryAddress.colony}\n`;
+                waText += `🏠 *Referencia:* ${sessionState.deliveryAddress.reference}\n`;
+            }
+            waText += `🕒 *Hora:* ${nowStr}\n`;
+            waText += `════════════════════\n`;
+
+            sessionState.diners.forEach(diner => {
+                const entries = Object.entries(diner.cart || {})
+                    .map(([itemId, qty]) => ({ item: findDishById(itemId), qty }))
+                    .filter(e => e.item && e.qty > 0);
+
+                if (entries.length === 0) return;
+
+                const sub = getDinerSubtotal(diner);
+                grandTotal += sub;
+
+                const personAdjustedTotal = (!diner.isShared && sessionState.splitSharedEqually)
+                    ? sub + sharedShare
+                    : sub;
+
+                htmlBlocks += `
+                    <div class="bg-charcoal border border-stone-800 rounded-xl p-3 space-y-1.5">
+                        <div class="flex items-center justify-between border-b border-stone-800 pb-1.5">
+                            <span class="font-heading text-sm font-bold uppercase text-amber-400 flex items-center gap-1.5">
+                                <i class="fa-solid ${diner.isShared ? 'fa-people-group' : 'fa-user'}"></i>
+                                ${diner.fullName}
+                            </span>
+                            <span class="text-xs font-bold text-white bg-black/50 px-2 py-0.5 rounded-md">
+                                Cuenta: $${personAdjustedTotal % 1 === 0 ? personAdjustedTotal : personAdjustedTotal.toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="space-y-1 pt-1">
+                            ${entries.map(({ item, qty }) => `
+                                <div class="flex justify-between text-xs text-stone-300">
+                                    <span><strong class="text-white">${qty}x</strong> ${item.name}</span>
+                                    <span>$${item.price * qty}</span>
+                                </div>
+                            `).join('')}
+                            ${(!diner.isShared && sessionState.splitSharedEqually && sharedShare > 0) ? `
+                                <div class="flex justify-between text-[11px] text-amber-300/90 pt-1 border-t border-stone-800/60">
+                                    <span>+ Proporción Al Centro</span>
+                                    <span>$${sharedShare.toFixed(2)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                waText += `\n👤 *CUENTA DE: ${diner.fullName.toUpperCase()}*\n`;
+                entries.forEach(({ item, qty }) => {
+                    waText += `  • ${qty}x ${item.name} ($${item.price * qty})\n`;
+                });
+                if (!diner.isShared && sessionState.splitSharedEqually && sharedShare > 0) {
+                    waText += `  • + Proporción Al Centro ($${sharedShare.toFixed(2)})\n`;
+                }
+                waText += `  *Subtotal ${diner.fullName.split(' ')[0]}: $${personAdjustedTotal % 1 === 0 ? personAdjustedTotal : personAdjustedTotal.toFixed(2)} MXN*\n`;
+            });
+
+            waText += `\n════════════════════\n`;
+            waText += `💰 *GRAN TOTAL DE LA MESA: $${grandTotal} MXN*`;
+
+            currentTicketPlainText = waText;
+
+            const printable = document.getElementById('ticket-printable-area');
+            printable.innerHTML = `
+                <div class="text-center border-b border-stone-800 pb-3">
+                    <h4 class="font-display font-bold text-lg text-amber-400">LA OBRERA GRILL ASADERO</h4>
+                    <p class="text-xs text-stone-400">${sessionState.serviceType} • Folio #${sessionState.folio} • ${nowStr}</p>
+                    ${sessionState.notes ? `<p class="text-xs text-amber-300 mt-1"><i class="fa-solid fa-phone mr-1"></i><strong>Teléfono:</strong> ${sessionState.notes}</p>` : ''}
+                    ${hasDelivery ? `
+                        <div class="mt-2 bg-stone-900 border border-amber-500/40 rounded-xl p-2.5 text-left text-xs space-y-0.5">
+                            <p class="text-amber-400 font-bold uppercase tracking-wider text-[11px]"><i class="fa-solid fa-motorcycle mr-1"></i> Servicio a Domicilio:</p>
+                            <p class="text-white"><strong>Ubicación:</strong> ${sessionState.deliveryAddress.street}, <strong>Colonia:</strong> ${sessionState.deliveryAddress.colony}</p>
+                            <p class="text-stone-300"><strong>Referencia:</strong> ${sessionState.deliveryAddress.reference}</p>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="space-y-2.5">
+                    ${htmlBlocks}
+                </div>
+
+                <div class="border-t border-stone-700 pt-3 flex items-center justify-between">
+                    <div>
+                        <span class="font-heading text-base uppercase text-stone-200 block leading-none">Gran Total del Pedido:</span>
+                        <span class="text-[11px] text-stone-400">Incluye todas las cuentas individuales</span>
+                    </div>
+                    <span class="font-heading text-2xl sm:text-3xl font-bold text-amber-400">$${grandTotal} MXN</span>
+                </div>
+            `;
+
+            document.getElementById('ticket-modal').classList.remove('hidden');
+        }
+
+        function closeTicketModal() {
+            document.getElementById('ticket-modal').classList.add('hidden');
+        }
+
+        // Finalizar la compra y borrar todos los datos personales (Nombre, Teléfono, Ubicación/Domicilio y Cuentas)
+        function finalizePurchaseAndClearData() {
+            // 1. Cerrar modal de ticket y drawer lateral
+            closeTicketModal();
+            const drawer = document.getElementById('order-drawer');
+            const backdrop = document.getElementById('order-drawer-backdrop');
+            if (drawer) drawer.classList.add('translate-x-full');
+            if (backdrop) backdrop.classList.add('hidden');
+
+            // 2. Eliminar datos guardados en localStorage y reiniciar el estado en memoria
+            localStorage.removeItem(STORAGE_KEY);
+            currentTicketPlainText = '';
+            sessionState = {
+                isRegistered: false,
+                serviceType: 'Mesa 1',
+                deliveryAddress: {
+                    street: '',
+                    colony: '',
+                    reference: ''
+                },
+                notes: '',
+                folio: '',
+                splitSharedEqually: false,
+                activeDinerId: null,
+                diners: []
+            };
+
+            // 3. Limpiar todos los campos del formulario de registro (Nombre, Teléfono, Ubicación, Colonia, Referencia)
+            const fieldsToClear = [
+                'reg-main-fullname',
+                'reg-notes',
+                'reg-delivery-street',
+                'reg-delivery-colony',
+                'reg-delivery-reference',
+                'quick-person-fullname'
+            ];
+            fieldsToClear.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+
+            const extraContainer = document.getElementById('extra-persons-inputs-container');
+            if (extraContainer) extraContainer.innerHTML = '';
+
+            const splitToggle = document.getElementById('split-shared-toggle');
+            if (splitToggle) splitToggle.checked = false;
+
+            // 4. Actualizar la interfaz y abrir el registro en blanco para el siguiente cliente
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+            openRegistrationModal(true);
+
+            showToast('¡Compra finalizada! Se borraron tu nombre, teléfono y ubicación.');
+        }
+
+        // Enviar el ticket actual por WhatsApp
+        function sendTicketViaWhatsApp() {
+            if (!currentTicketPlainText) return;
+            const encoded = encodeURIComponent(currentTicketPlainText);
+            window.open(`https://wa.me/?text=${encoded}`, '_blank');
+        }
+
+        // Copiar el ticket actual al portapapeles
+        function copyCurrentTicketText() {
+            if (!currentTicketPlainText) return;
+            copyTextHelper(currentTicketPlainText);
+            const lbl = document.getElementById('btn-copy-ticket-label');
+            lbl.textContent = '¡Copiado!';
+            showToast('Ticket con cuentas por persona copiado al portapapeles');
+            setTimeout(() => {
+                lbl.textContent = 'Copiar Ticket';
+            }, 2200);
+        }
+
+        // Copiar todo desde el botón rápido del Drawer
+        function copyFullOrderToClipboard() {
+            openOrderConfirmationModal();
+            copyCurrentTicketText();
+        }
+
+        function copyTextHelper(text) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+        }
+
+        // Confirmación personalizada para reiniciar mesa
+        function confirmResetTableSession() {
+            document.getElementById('reset-confirm-modal').classList.remove('hidden');
+        }
+
+        function closeResetConfirmModal() {
+            document.getElementById('reset-confirm-modal').classList.add('hidden');
+        }
+
+        function executeResetTableSession() {
+            closeResetConfirmModal();
+            localStorage.removeItem(STORAGE_KEY);
+            sessionState = {
+                isRegistered: false,
+                serviceType: 'Mesa 1',
+                deliveryAddress: {
+                    street: '',
+                    colony: '',
+                    reference: ''
+                },
+                notes: '',
+                folio: generateFolio(),
+                splitSharedEqually: false,
+                activeDinerId: null,
+                diners: []
+            };
+            const drawer = document.getElementById('order-drawer');
+            const backdrop = document.getElementById('order-drawer-backdrop');
+            drawer.classList.add('translate-x-full');
+            backdrop.classList.add('hidden');
+
+            renderDinersBar();
+            renderMenuSections();
+            updateOrderUI();
+            openRegistrationModal(true);
+        }
+
+        // Mostrar notificación Toast
+        let toastTimeout = null;
+        function showToast(message) {
+            const toast = document.getElementById('toast-notification');
+            const msgEl = document.getElementById('toast-message');
+            if (!toast || !msgEl) return;
+
+            msgEl.textContent = message;
+            toast.classList.remove('hidden');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2600);
+        }
+
+        // Permitir al usuario cargar su imagen de logotipo directamente
+        function handleCustomLogoUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                document.querySelectorAll('.custom-logo-img').forEach(img => {
+                    img.src = dataUrl;
+                    img.style.display = 'block';
+                });
+                showToast('¡Logotipo actualizado correctamente!');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Crear partículas de brasa flotantes en el fondo
+        function createEmberParticles() {
+            const container = document.getElementById('embers-container');
+            const count = 18;
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'ember-particle';
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.animationDuration = `${6 + Math.random() * 8}s`;
+                particle.style.animationDelay = `${Math.random() * 5}s`;
+                container.appendChild(particle);
+            }
+        }
+    </script>
+</body>
+</html>

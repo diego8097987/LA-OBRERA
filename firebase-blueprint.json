@@ -1,0 +1,504 @@
+{
+  "entities": {
+    "StaffProfile": {
+      "title": "StaffProfile",
+      "description": "Operational role and status profile for restaurant staff (no PII stored on public profile).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "enum": ["pending", "mesero", "cocina", "cajero", "admin"]
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "role", "active", "createdAt", "updatedAt"]
+    },
+    "StaffPrivateContact": {
+      "title": "StaffPrivateContact",
+      "description": "Isolated PII document for staff contact information (email), readable only by owner or admin.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 160
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "updatedAt"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Official restaurant dish with live stock availability, description, and pricing controlled exclusively by Admin.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "categoryId": {
+          "type": "string",
+          "enum": ["familiar", "cortes", "compartir", "parrillada", "individual", "mixotes", "extras", "bebidas"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "desc": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "price": {
+          "type": "number"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "station": {
+          "type": "string",
+          "enum": ["parrilla", "cocina", "barra"]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        }
+      },
+      "required": ["id", "categoryId", "name", "price", "available", "station", "updatedAt", "updatedBy"]
+    },
+    "CashRegisterState": {
+      "title": "CashRegisterState",
+      "description": "Real-time cash register open/close status managed exclusively by Admin.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": ["current"]
+        },
+        "isOpen": {
+          "type": "boolean"
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "openingCash": {
+          "type": "number"
+        },
+        "openedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "openedByName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "openedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "closedByUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "closedByName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "closedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastCountedCash": {
+          "type": "number"
+        },
+        "lastCashDifference": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "isOpen", "dateKey", "openingCash", "openedByUid", "openedByName", "openedAt", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Operational restaurant order with strict role-separated transitions. Zero customer phone or address PII.",
+      "type": "object",
+      "properties": {
+        "folio": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 24,
+          "pattern": "^OBR-[0-9]{4,8}$"
+        },
+        "serviceType": {
+          "type": "string",
+          "enum": [
+            "Mesa 1",
+            "Mesa 2",
+            "Mesa 3",
+            "Mesa 4",
+            "Mesa 5",
+            "Mesa 6",
+            "Mesa 7",
+            "Mesa 8",
+            "Mesa 9",
+            "Mesa 10",
+            "Para Llevar",
+            "Servicio a Domicilio"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "preparing", "ready", "served", "paid", "cancelled"]
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "waiterUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "waiterName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "kitchenUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "cashierUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "diners": {
+          "type": "array",
+          "description": "Bounded list of up to 12 diner labels/accounts for split billing."
+        },
+        "items": {
+          "type": "array",
+          "description": "Bounded list of up to 50 ordered line items."
+        },
+        "splitSharedEqually": {
+          "type": "boolean"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "tip": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["none", "efectivo", "tarjeta", "transferencia"]
+        },
+        "amountReceived": {
+          "type": "number"
+        },
+        "changeGiven": {
+          "type": "number"
+        },
+        "hasDeliveryInfo": {
+          "type": "boolean"
+        },
+        "orderNotes": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paidAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "folio",
+        "serviceType",
+        "status",
+        "dateKey",
+        "waiterUid",
+        "waiterName",
+        "diners",
+        "items",
+        "splitSharedEqually",
+        "subtotal",
+        "tip",
+        "total",
+        "paymentMethod",
+        "amountReceived",
+        "changeGiven",
+        "hasDeliveryInfo",
+        "orderNotes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderPrivateCustomer": {
+      "title": "OrderPrivateCustomer",
+      "description": "Isolated customer PII (full name, phone, delivery address) protected from kitchen staff and unauthorized users.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "street": {
+          "type": "string",
+          "maxLength": 140
+        },
+        "colony": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "reference": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "waiterUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["orderId", "customerName", "phone", "street", "colony", "reference", "waiterUid", "createdAt"]
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "description": "Archived daily cash register cut (Cierre de Caja) executed exclusively by Admin.",
+      "type": "object",
+      "properties": {
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "totalSales": {
+          "type": "number"
+        },
+        "totalTips": {
+          "type": "number"
+        },
+        "orderCount": {
+          "type": "number"
+        },
+        "cancelledCount": {
+          "type": "number"
+        },
+        "cashTotal": {
+          "type": "number"
+        },
+        "cardTotal": {
+          "type": "number"
+        },
+        "transferTotal": {
+          "type": "number"
+        },
+        "openingCash": {
+          "type": "number"
+        },
+        "countedCash": {
+          "type": "number"
+        },
+        "cashDifference": {
+          "type": "number"
+        },
+        "generatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "generatedByName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "dateKey",
+        "totalSales",
+        "totalTips",
+        "orderCount",
+        "cancelledCount",
+        "cashTotal",
+        "cardTotal",
+        "transferTotal",
+        "openingCash",
+        "countedCash",
+        "cashDifference",
+        "generatedByUid",
+        "generatedByName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Append-only operational and security audit log.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "ORDER_CREATED",
+            "ORDER_UPDATED",
+            "ORDER_STATUS_CHANGED",
+            "ORDER_PAID",
+            "ORDER_CANCELLED",
+            "ROLE_UPDATED",
+            "MENU_UPDATED",
+            "CASH_REGISTER_OPENED",
+            "CASH_REGISTER_CLOSED",
+            "REPORT_SAVED"
+          ]
+        },
+        "actorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "actorRole": {
+          "type": "string",
+          "enum": ["mesero", "cocina", "cajero", "admin"]
+        },
+        "targetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["action", "actorUid", "actorRole", "targetId", "summary", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/staff/{uid}": {
+      "schema": { "$ref": "#/entities/StaffProfile" },
+      "description": "Staff RBAC profiles without email PII."
+    },
+    "/staff/{uid}/private/contact": {
+      "schema": { "$ref": "#/entities/StaffPrivateContact" },
+      "description": "Isolated staff contact email, readable only by self or admin."
+    },
+    "/menu_items/{itemId}": {
+      "schema": { "$ref": "#/entities/MenuItem" },
+      "description": "Custom dishes, availability, and price overrides managed exclusively by Admin."
+    },
+    "/cash_register/{registerId}": {
+      "schema": { "$ref": "#/entities/CashRegisterState" },
+      "description": "Live cash register open/close status controlled exclusively by Admin."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Live restaurant orders with strict independent role transitions."
+    },
+    "/orders/{orderId}/private/customer": {
+      "schema": { "$ref": "#/entities/OrderPrivateCustomer" },
+      "description": "Isolated customer PII (name, phone, address) restricted to Admin, Cashier, and the order's Waiter."
+    },
+    "/daily_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/DailyReport" },
+      "description": "Archived daily sales closing reports managed exclusively by Admin."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable append-only operational security audit trail."
+    }
+  }
+}

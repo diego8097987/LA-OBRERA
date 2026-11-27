@@ -1,0 +1,570 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // PILLAR 1 & GLOBAL SAFETY NET: DEFAULT DENY CATCH-ALL
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // GLOBAL PRIMITIVES & STRICT INDEPENDENT ROLE HELPERS (ZERO CUSTOM CLAIMS)
+    // =========================================================================
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidDateKey(val) {
+      return val is string && val.size() == 10 && val.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isBootstrapAdmin() {
+      return isSignedIn() && request.auth.token.email == 'd.olivares.imilenio@gmail.com';
+    }
+
+    function staffExists() {
+      return exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+
+    function staffData() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
+    }
+
+    function hasActiveRole(roleName) {
+      return isSignedIn() && staffExists() && staffData().active == true && staffData().role == roleName;
+    }
+
+    // Strict independent roles — no cross-role bleed between operational stations
+    function isAdmin() {
+      return isBootstrapAdmin() || hasActiveRole('admin');
+    }
+
+    function isStrictWaiter() {
+      return hasActiveRole('mesero');
+    }
+
+    function isStrictKitchen() {
+      return hasActiveRole('cocina');
+    }
+
+    function isStrictCashier() {
+      return hasActiveRole('cajero');
+    }
+
+    function isActiveStaff() {
+      return isBootstrapAdmin() || (
+        isSignedIn() &&
+        staffExists() &&
+        staffData().active == true &&
+        staffData().role in ['mesero', 'cocina', 'cajero', 'admin']
+      );
+    }
+
+    function isCashRegisterOpen() {
+      return exists(/databases/$(database)/documents/cash_register/current)
+        && get(/databases/$(database)/documents/cash_register/current).data.isOpen == true;
+    }
+
+    // =========================================================================
+    // VALIDATION BLUEPRINTS (PILLAR 2: ANTI-UPDATE-GAP)
+    // =========================================================================
+    function isValidStaffProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'active', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'active', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == uid && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 80
+        && data.role is string && data.role in ['pending', 'mesero', 'cocina', 'cajero', 'admin']
+        && data.active is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStaffPrivateContact(data, uid) {
+      return data.keys().hasAll(['uid', 'email', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'updatedAt'])
+        && data.uid is string && data.uid == uid && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMenuItem(data, itemId) {
+      return data.keys().hasAll(['id', 'categoryId', 'name', 'price', 'available', 'station', 'updatedAt', 'updatedBy'])
+        && data.keys().hasOnly(['id', 'categoryId', 'name', 'desc', 'price', 'available', 'station', 'updatedAt', 'updatedBy'])
+        && data.id is string && data.id == itemId && isValidId(data.id)
+        && data.categoryId is string && data.categoryId in ['familiar', 'cortes', 'compartir', 'parrillada', 'individual', 'mixotes', 'extras', 'bebidas']
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && (!('desc' in data) || (data.desc is string && data.desc.size() <= 180))
+        && data.price is number && data.price >= 1 && data.price <= 50000
+        && data.available is bool
+        && data.station is string && data.station in ['parrilla', 'cocina', 'barra']
+        && data.updatedAt is timestamp
+        && data.updatedBy is string && isValidId(data.updatedBy);
+    }
+
+    function isValidCashRegister(data, registerId) {
+      return data.keys().hasAll([
+          'id', 'isOpen', 'dateKey', 'openingCash', 'openedByUid', 'openedByName', 'openedAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'isOpen', 'dateKey', 'openingCash', 'openedByUid', 'openedByName', 'openedAt',
+          'closedByUid', 'closedByName', 'closedAt', 'lastCountedCash', 'lastCashDifference', 'updatedAt'
+        ])
+        && data.id is string && data.id == 'current' && data.id == registerId
+        && data.isOpen is bool
+        && isValidDateKey(data.dateKey)
+        && data.openingCash is number && data.openingCash >= 0 && data.openingCash <= 1000000
+        && data.openedByUid is string && isValidId(data.openedByUid)
+        && data.openedByName is string && data.openedByName.size() >= 2 && data.openedByName.size() <= 80
+        && data.openedAt is timestamp
+        && (!('closedByUid' in data) || (data.closedByUid is string && data.closedByUid.size() <= 128))
+        && (!('closedByName' in data) || (data.closedByName is string && data.closedByName.size() <= 80))
+        && (!('closedAt' in data) || data.closedAt is timestamp)
+        && (!('lastCountedCash' in data) || (data.lastCountedCash is number && data.lastCountedCash >= 0 && data.lastCountedCash <= 10000000))
+        && (!('lastCashDifference' in data) || (data.lastCashDifference is number && data.lastCashDifference >= -10000000 && data.lastCashDifference <= 10000000))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDinersList(diners) {
+      return diners is list
+        && diners.size() >= 1
+        && diners.size() <= 12
+        && diners[0] is map
+        && diners[0].keys().hasAll(['id', 'label', 'isShared'])
+        && diners[0].keys().hasOnly(['id', 'label', 'isShared'])
+        && diners[0].id is string && diners[0].id.size() >= 1 && diners[0].id.size() <= 64
+        && diners[0].label is string && diners[0].label.size() >= 1 && diners[0].label.size() <= 80
+        && diners[0].isShared is bool;
+    }
+
+    function isValidItemsList(items) {
+      return items is list
+        && items.size() >= 1
+        && items.size() <= 50
+        && items[0] is map
+        && items[0].keys().hasAll(['lineId', 'dishId', 'name', 'categoryId', 'station', 'unitPrice', 'qty', 'dinerId', 'notes'])
+        && items[0].keys().hasOnly(['lineId', 'dishId', 'name', 'categoryId', 'station', 'unitPrice', 'qty', 'dinerId', 'notes'])
+        && items[0].lineId is string && items[0].lineId.size() >= 1 && items[0].lineId.size() <= 64
+        && items[0].dishId is string && items[0].dishId.size() >= 1 && items[0].dishId.size() <= 64
+        && items[0].name is string && items[0].name.size() >= 1 && items[0].name.size() <= 80
+        && items[0].categoryId is string && items[0].categoryId.size() >= 1 && items[0].categoryId.size() <= 32
+        && items[0].station is string && items[0].station in ['parrilla', 'cocina', 'barra']
+        && items[0].unitPrice is number && items[0].unitPrice >= 1 && items[0].unitPrice <= 50000
+        && items[0].qty is int && items[0].qty >= 1 && items[0].qty <= 99
+        && items[0].dinerId is string && items[0].dinerId.size() >= 1 && items[0].dinerId.size() <= 64
+        && items[0].notes is string && items[0].notes.size() <= 120;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'folio', 'serviceType', 'status', 'dateKey', 'waiterUid', 'waiterName',
+          'diners', 'items', 'splitSharedEqually', 'subtotal', 'tip', 'total',
+          'paymentMethod', 'amountReceived', 'changeGiven', 'hasDeliveryInfo',
+          'orderNotes', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'folio', 'serviceType', 'status', 'dateKey', 'waiterUid', 'waiterName',
+          'kitchenUid', 'cashierUid', 'diners', 'items', 'splitSharedEqually',
+          'subtotal', 'tip', 'total', 'paymentMethod', 'amountReceived',
+          'changeGiven', 'hasDeliveryInfo', 'orderNotes', 'createdAt',
+          'updatedAt', 'paidAt'
+        ])
+        && data.folio is string && data.folio.size() >= 5 && data.folio.size() <= 24 && data.folio.matches('^OBR-[0-9]{4,8}$')
+        && data.serviceType is string && data.serviceType in [
+          'Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4', 'Mesa 5',
+          'Mesa 6', 'Mesa 7', 'Mesa 8', 'Mesa 9', 'Mesa 10',
+          'Para Llevar', 'Servicio a Domicilio'
+        ]
+        && data.status is string && data.status in ['pending', 'preparing', 'ready', 'served', 'paid', 'cancelled']
+        && isValidDateKey(data.dateKey)
+        && data.waiterUid is string && isValidId(data.waiterUid)
+        && data.waiterName is string && data.waiterName.size() >= 2 && data.waiterName.size() <= 80
+        && (!('kitchenUid' in data) || (data.kitchenUid is string && data.kitchenUid.size() <= 128))
+        && (!('cashierUid' in data) || (data.cashierUid is string && data.cashierUid.size() <= 128))
+        && isValidDinersList(data.diners)
+        && isValidItemsList(data.items)
+        && data.splitSharedEqually is bool
+        && data.subtotal is number && data.subtotal >= 1 && data.subtotal <= 250000
+        && data.tip is number && data.tip >= 0 && data.tip <= 50000
+        && data.total is number && data.total >= 1 && data.total <= 300000
+        && math.abs(data.total - (data.subtotal + data.tip)) <= 0.01
+        && data.paymentMethod is string && data.paymentMethod in ['none', 'efectivo', 'tarjeta', 'transferencia']
+        && data.amountReceived is number && data.amountReceived >= 0 && data.amountReceived <= 500000
+        && data.changeGiven is number && data.changeGiven >= 0 && data.changeGiven <= 500000
+        && data.hasDeliveryInfo is bool
+        && data.orderNotes is string && data.orderNotes.size() <= 240
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('paidAt' in data) || data.paidAt is timestamp);
+    }
+
+    function isValidOrderPrivateCustomer(data, orderId) {
+      return data.keys().hasAll(['orderId', 'customerName', 'phone', 'street', 'colony', 'reference', 'waiterUid', 'createdAt'])
+        && data.keys().hasOnly(['orderId', 'customerName', 'phone', 'street', 'colony', 'reference', 'waiterUid', 'createdAt'])
+        && data.orderId is string && data.orderId == orderId && isValidId(data.orderId)
+        && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100
+        && data.phone is string && data.phone.size() <= 30
+        && data.street is string && data.street.size() <= 140
+        && data.colony is string && data.colony.size() <= 100
+        && data.reference is string && data.reference.size() <= 200
+        && data.waiterUid is string && isValidId(data.waiterUid)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidDailyReport(data, reportId) {
+      return data.keys().hasAll([
+          'dateKey', 'totalSales', 'totalTips', 'orderCount', 'cancelledCount',
+          'cashTotal', 'cardTotal', 'transferTotal', 'openingCash',
+          'countedCash', 'cashDifference', 'generatedByUid',
+          'generatedByName', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'dateKey', 'totalSales', 'totalTips', 'orderCount', 'cancelledCount',
+          'cashTotal', 'cardTotal', 'transferTotal', 'openingCash',
+          'countedCash', 'cashDifference', 'generatedByUid',
+          'generatedByName', 'createdAt', 'updatedAt'
+        ])
+        && isValidDateKey(data.dateKey) && data.dateKey == reportId
+        && data.totalSales is number && data.totalSales >= 0 && data.totalSales <= 10000000
+        && data.totalTips is number && data.totalTips >= 0 && data.totalTips <= 2000000
+        && data.orderCount is int && data.orderCount >= 0 && data.orderCount <= 100000
+        && data.cancelledCount is int && data.cancelledCount >= 0 && data.cancelledCount <= 100000
+        && data.cashTotal is number && data.cashTotal >= 0 && data.cashTotal <= 10000000
+        && data.cardTotal is number && data.cardTotal >= 0 && data.cardTotal <= 10000000
+        && data.transferTotal is number && data.transferTotal >= 0 && data.transferTotal <= 10000000
+        && data.openingCash is number && data.openingCash >= 0 && data.openingCash <= 1000000
+        && data.countedCash is number && data.countedCash >= 0 && data.countedCash <= 10000000
+        && data.cashDifference is number && data.cashDifference >= -10000000 && data.cashDifference <= 10000000
+        && math.abs(data.cashDifference - (data.countedCash - (data.openingCash + data.cashTotal))) <= 0.01
+        && data.generatedByUid is string && isValidId(data.generatedByUid)
+        && data.generatedByName is string && data.generatedByName.size() >= 2 && data.generatedByName.size() <= 80
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['action', 'actorUid', 'actorRole', 'targetId', 'summary', 'createdAt'])
+        && data.keys().hasOnly(['action', 'actorUid', 'actorRole', 'targetId', 'summary', 'createdAt'])
+        && data.action is string && data.action in [
+          'ORDER_CREATED', 'ORDER_UPDATED', 'ORDER_STATUS_CHANGED',
+          'ORDER_PAID', 'ORDER_CANCELLED', 'ROLE_UPDATED',
+          'MENU_UPDATED', 'CASH_REGISTER_OPENED', 'CASH_REGISTER_CLOSED',
+          'REPORT_SAVED'
+        ]
+        && data.actorUid is string && isValidId(data.actorUid)
+        && data.actorRole is string && data.actorRole in ['mesero', 'cocina', 'cajero', 'admin']
+        && data.targetId is string && isValidId(data.targetId)
+        && data.summary is string && data.summary.size() >= 3 && data.summary.size() <= 200
+        && data.createdAt is timestamp;
+    }
+
+    // =========================================================================
+    // COLLECTION 1: /staff/{uid} + SPLIT PII /staff/{uid}/private/contact
+    // SOLO ADMINISTRADOR INGRESA PERSONAL Y ASIGNA ROLES
+    // =========================================================================
+    match /staff/{uid} {
+      allow get: if isValidId(uid) && isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin() && resource.data.uid is string;
+
+      allow create: if isValidId(uid)
+        && isSignedIn()
+        && isValidStaffProfile(incoming(), uid)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isBootstrapAdmin() && request.auth.uid == uid && incoming().role == 'admin' && incoming().active == true) ||
+          (request.auth.uid == uid && incoming().role == 'pending' && incoming().active == false) ||
+          isAdmin()
+        );
+
+      allow update: if isValidId(uid)
+        && isSignedIn()
+        && isValidStaffProfile(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Admin role/status management ONLY
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'active', 'displayName', 'updatedAt'])) ||
+          // Action: Self display name edit only (strictly forbids changing role or active)
+          (request.auth.uid == uid && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(uid) && isAdmin() && uid != request.auth.uid;
+
+      match /private/contact {
+        allow get: if isValidId(uid) && isSignedIn() && (request.auth.uid == uid || isAdmin());
+        allow list: if false;
+
+        allow create: if isValidId(uid)
+          && isSignedIn()
+          && isValidStaffPrivateContact(incoming(), uid)
+          && (request.auth.uid == uid || isAdmin())
+          && incoming().updatedAt == request.time
+          && existsAfter(/databases/$(database)/documents/staff/$(uid));
+
+        allow update: if isValidId(uid)
+          && isSignedIn()
+          && isValidStaffPrivateContact(incoming(), uid)
+          && (request.auth.uid == uid || isAdmin())
+          && incoming().uid == existing().uid
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+
+        allow delete: if isValidId(uid) && isAdmin();
+      }
+    }
+
+    // =========================================================================
+    // COLLECTION 2: /menu_items/{itemId} (SOLO ADMINISTRADOR AGREGA Y EDITA)
+    // =========================================================================
+    match /menu_items/{itemId} {
+      allow get: if isValidId(itemId) && isActiveStaff();
+      allow list: if isActiveStaff() && resource.data.available is bool;
+
+      allow create: if isValidId(itemId)
+        && isSignedIn()
+        && isValidMenuItem(incoming(), itemId)
+        && isAdmin()
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(itemId)
+        && isSignedIn()
+        && isValidMenuItem(incoming(), itemId)
+        && isAdmin()
+        && incoming().id == existing().id
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'desc', 'categoryId', 'price', 'available', 'station', 'updatedAt', 'updatedBy']);
+
+      allow delete: if isValidId(itemId) && isAdmin();
+    }
+
+    // =========================================================================
+    // COLLECTION 3: /cash_register/{registerId} (SOLO ADMINISTRADOR ABRE/CIERRA)
+    // =========================================================================
+    match /cash_register/{registerId} {
+      allow get: if isValidId(registerId) && registerId == 'current' && isActiveStaff();
+      allow list: if false;
+
+      allow create: if isValidId(registerId)
+        && registerId == 'current'
+        && isSignedIn()
+        && isAdmin()
+        && isValidCashRegister(incoming(), registerId)
+        && incoming().openedByUid == request.auth.uid
+        && incoming().openedAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(registerId)
+        && registerId == 'current'
+        && isSignedIn()
+        && isAdmin()
+        && isValidCashRegister(incoming(), registerId)
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'isOpen', 'dateKey', 'openingCash', 'openedByUid', 'openedByName', 'openedAt',
+          'closedByUid', 'closedByName', 'closedAt', 'lastCountedCash', 'lastCashDifference', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // COLLECTION 4: /orders/{orderId} + SPLIT PII /orders/{orderId}/private/customer
+    // FUNCIONES ESTRICTAMENTE SEPARADAS POR ROL EN TIEMPO REAL
+    // =========================================================================
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isActiveStaff();
+      allow list: if isActiveStaff() && resource.data.dateKey is string;
+
+      // ONLY Mesero takes orders
+      allow create: if isValidId(orderId)
+        && isSignedIn()
+        && isValidOrder(incoming())
+        && isStrictWaiter()
+        && incoming().waiterUid == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().paymentMethod == 'none'
+        && incoming().tip == 0
+        && incoming().amountReceived == 0
+        && incoming().changeGiven == 0
+        && !('paidAt' in incoming())
+        && !('cashierUid' in incoming())
+        && !('kitchenUid' in incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(orderId)
+        && isSignedIn()
+        && isValidOrder(incoming())
+        && incoming().folio == existing().folio
+        && incoming().dateKey == existing().dateKey
+        && incoming().waiterUid == existing().waiterUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Tier 1 (Admin): Can ONLY cancel unpaid active orders (strict role separation: Admin does not cook or collect payment)
+          (isAdmin()
+            && !(existing().status in ['paid', 'cancelled'])
+            && incoming().status == 'cancelled'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+
+          // Terminal state lock for all operational roles
+          (!(existing().status in ['paid', 'cancelled']) && (
+            // Action A (Cocina ONLY): Start preparing (pending -> preparing)
+            (isStrictKitchen()
+              && existing().status == 'pending'
+              && incoming().status == 'preparing'
+              && incoming().kitchenUid == request.auth.uid
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'kitchenUid', 'updatedAt'])) ||
+
+            // Action B (Cocina ONLY): Mark ready (preparing -> ready)
+            (isStrictKitchen()
+              && existing().status == 'preparing'
+              && incoming().status == 'ready'
+              && incoming().kitchenUid == request.auth.uid
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'kitchenUid', 'updatedAt'])) ||
+
+            // Action C (Mesero ONLY): Mark served (ready -> served)
+            (isStrictWaiter()
+              && existing().status == 'ready'
+              && incoming().status == 'served'
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+
+            // Action D (Mesero ONLY): Append items / update split while pending or preparing
+            // Anti-fraud: once preparing, waiter cannot decrease subtotal
+            (isStrictWaiter()
+              && existing().status in ['pending', 'preparing']
+              && incoming().status == existing().status
+              && (existing().status == 'pending' || incoming().subtotal >= existing().subtotal)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'diners', 'items', 'splitSharedEqually', 'subtotal', 'total', 'orderNotes', 'updatedAt'
+              ])) ||
+
+            // Action E (Cajero ONLY): Collect payment ONLY while Cash Register is OPEN by Admin
+            (isStrictCashier()
+              && isCashRegisterOpen()
+              && existing().status in ['ready', 'served']
+              && incoming().status == 'paid'
+              && incoming().paymentMethod in ['efectivo', 'tarjeta', 'transferencia']
+              && incoming().cashierUid == request.auth.uid
+              && incoming().paidAt == request.time
+              && incoming().amountReceived >= incoming().total
+              && math.abs(incoming().changeGiven - (incoming().amountReceived - incoming().total)) <= 0.01
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'paymentMethod', 'tip', 'total', 'amountReceived',
+                'changeGiven', 'cashierUid', 'paidAt', 'updatedAt'
+              ]))
+          ))
+        );
+
+      // Anti-fraud: only Admin can delete orders
+      allow delete: if isValidId(orderId) && isAdmin();
+
+      // Split Collection PII Isolation: Customer phone & delivery address
+      match /private/customer {
+        allow get: if isValidId(orderId)
+          && isSignedIn()
+          && exists(/databases/$(database)/documents/orders/$(orderId))
+          && (
+            isAdmin() ||
+            isStrictCashier() ||
+            (isStrictWaiter() && get(/databases/$(database)/documents/orders/$(orderId)).data.waiterUid == request.auth.uid)
+          );
+
+        allow list: if false;
+
+        allow create: if isValidId(orderId)
+          && isSignedIn()
+          && isValidOrderPrivateCustomer(incoming(), orderId)
+          && isStrictWaiter()
+          && incoming().waiterUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/orders/$(orderId));
+
+        allow update: if isValidId(orderId)
+          && isSignedIn()
+          && isValidOrderPrivateCustomer(incoming(), orderId)
+          && exists(/databases/$(database)/documents/orders/$(orderId))
+          && incoming().orderId == existing().orderId
+          && incoming().waiterUid == existing().waiterUid
+          && incoming().createdAt == existing().createdAt
+          && isStrictWaiter()
+          && existing().waiterUid == request.auth.uid
+          && incoming().diff(existing()).affectedKeys().hasOnly(['customerName', 'phone', 'street', 'colony', 'reference']);
+
+        allow delete: if isValidId(orderId) && isAdmin();
+      }
+    }
+
+    // =========================================================================
+    // COLLECTION 5: /daily_reports/{reportId} (CIERRE DE CAJA Y VENTAS: SOLO ADMIN)
+    // =========================================================================
+    match /daily_reports/{reportId} {
+      allow get: if isValidId(reportId) && isAdmin();
+      allow list: if isAdmin() && resource.data.dateKey is string;
+
+      allow create: if isValidId(reportId)
+        && isSignedIn()
+        && isValidDailyReport(incoming(), reportId)
+        && isAdmin()
+        && incoming().generatedByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(reportId)
+        && isSignedIn()
+        && isValidDailyReport(incoming(), reportId)
+        && isAdmin()
+        && incoming().dateKey == existing().dateKey
+        && incoming().createdAt == existing().createdAt
+        && incoming().generatedByUid == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'totalSales', 'totalTips', 'orderCount', 'cancelledCount',
+          'cashTotal', 'cardTotal', 'transferTotal', 'openingCash',
+          'countedCash', 'cashDifference', 'generatedByUid',
+          'generatedByName', 'updatedAt'
+        ]);
+
+      allow delete: if isValidId(reportId) && isAdmin();
+    }
+
+    // =========================================================================
+    // COLLECTION 6: /audit_logs/{logId} (IMMUTABLE APPEND-ONLY)
+    // =========================================================================
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId) && isAdmin();
+      allow list: if isAdmin() && resource.data.actorUid is string;
+
+      allow create: if isValidId(logId)
+        && isSignedIn()
+        && isValidAuditLog(incoming())
+        && incoming().actorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && (
+          (isBootstrapAdmin() && incoming().actorRole == 'admin') ||
+          (staffExists() && staffData().active == true && incoming().actorRole == staffData().role)
+        );
+
+      allow update, delete: if false;
+    }
+  }
+}

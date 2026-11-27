@@ -1,0 +1,6 @@
+{
+  "name": "LA OBRERA Grill Asadero — Sistema POS y Cocina",
+  "description": "Sistema integral de base de datos en tiempo real para restaurante con perfiles de Mesero, Cocina, Cajero con tickets imprimibles/descargables y Administrador con reportes diarios de ventas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
