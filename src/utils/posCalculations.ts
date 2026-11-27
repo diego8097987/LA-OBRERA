@@ -423,11 +423,89 @@ export interface DailySalesSummary {
 
 export function computeDailySalesSummary(orders: Order[], dateKey: string): DailySalesSummary {
   const dayOrders = orders.filter((o) => o.dateKey === dateKey);
-  const paidOrders = dayOrders.filter((o) => o.status === 'paid');
-  const activeOrders = dayOrders.filter(
+  return computeOrdersSalesSummary(dayOrders, dateKey);
+}
+
+/**
+ * Computes a complete sales summary across ALL open-shift orders currently stored
+ * (regardless of calendar midnight rollover) so closing the cash register archives
+ * every single sale before clearing the active orders collection.
+ */
+export function computeShiftSalesSummary(orders: Order[], dateKey: string): DailySalesSummary {
+  return computeOrdersSalesSummary(orders, dateKey);
+}
+
+/**
+ * Merges a newly closed shift report into an existing same-day DailyReport
+ * (when the Admin opens and closes the register more than once in the same day),
+ * preserving all previous shift sales while keeping cashDifference mathematically exact.
+ */
+export function mergeDailyReportTotals(
+  existing: {
+    totalSales: number;
+    totalTips: number;
+    orderCount: number;
+    cancelledCount: number;
+    cashTotal: number;
+    cardTotal: number;
+    transferTotal: number;
+    openingCash: number;
+    countedCash: number;
+  },
+  incoming: {
+    totalSales: number;
+    totalTips: number;
+    orderCount: number;
+    cancelledCount: number;
+    cashTotal: number;
+    cardTotal: number;
+    transferTotal: number;
+    openingCash: number;
+    countedCash: number;
+  }
+): {
+  totalSales: number;
+  totalTips: number;
+  orderCount: number;
+  cancelledCount: number;
+  cashTotal: number;
+  cardTotal: number;
+  transferTotal: number;
+  openingCash: number;
+  countedCash: number;
+  cashDifference: number;
+} {
+  const totalSales = roundMoney(existing.totalSales + incoming.totalSales);
+  const totalTips = roundMoney(existing.totalTips + incoming.totalTips);
+  const orderCount = Math.max(0, Math.floor(existing.orderCount + incoming.orderCount));
+  const cancelledCount = Math.max(0, Math.floor(existing.cancelledCount + incoming.cancelledCount));
+  const cashTotal = roundMoney(existing.cashTotal + incoming.cashTotal);
+  const cardTotal = roundMoney(existing.cardTotal + incoming.cardTotal);
+  const transferTotal = roundMoney(existing.transferTotal + incoming.transferTotal);
+  const openingCash = roundMoney(existing.openingCash + incoming.openingCash);
+  const countedCash = roundMoney(existing.countedCash + incoming.countedCash);
+  const cashDifference = roundMoney(countedCash - (openingCash + cashTotal));
+
+  return {
+    totalSales,
+    totalTips,
+    orderCount,
+    cancelledCount,
+    cashTotal,
+    cardTotal,
+    transferTotal,
+    openingCash,
+    countedCash,
+    cashDifference: Math.abs(cashDifference) < 0.005 ? 0 : cashDifference,
+  };
+}
+
+function computeOrdersSalesSummary(targetOrders: Order[], dateKey: string): DailySalesSummary {
+  const paidOrders = targetOrders.filter((o) => o.status === 'paid');
+  const activeOrders = targetOrders.filter(
     (o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready' || o.status === 'served'
   );
-  const cancelledOrders = dayOrders.filter((o) => o.status === 'cancelled');
+  const cancelledOrders = targetOrders.filter((o) => o.status === 'cancelled');
 
   let grossSubtotal = 0;
   let totalTips = 0;

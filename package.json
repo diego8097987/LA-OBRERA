@@ -1,7 +1,7 @@
 {
   "name": "la-obrera-pos",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "LA OBRERA Grill Asadero — Sistema POS, Cocina y Caja en tiempo real",
   "author": "LA OBRERA Grill Asadero",
   "type": "module",

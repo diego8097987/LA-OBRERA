@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2,
+  ClipboardList,
+  Edit3,
   MapPin,
   Minus,
   Plus,
@@ -51,7 +53,17 @@ function createInitialDiners(): OrderDiner[] {
 }
 
 export const WaiterView: React.FC = () => {
-  const { orders, menuItems, createOrder, appendItemsToOrder, updateOrderStatus, notify } = usePos();
+  const {
+    orders,
+    menuItems,
+    currentStaff,
+    createOrder,
+    appendItemsToOrder,
+    updateOrderStatus,
+    notify,
+  } = usePos();
+
+  const draftStorageKey = currentStaff?.uid ? `obrera_waiter_draft_${currentStaff.uid}` : null;
 
   const [serviceType, setServiceType] = useState<ServiceType>('Mesa 3');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -61,6 +73,8 @@ export const WaiterView: React.FC = () => {
   const [draftItems, setDraftItems] = useState<OrderLineItem[]>([]);
   const [splitSharedEqually, setSplitSharedEqually] = useState<boolean>(true);
   const [orderNotes, setOrderNotes] = useState<string>('');
+  const draftHydratedRef = useRef<boolean>(false);
+  const prevMyOrdersRef = useRef<Map<string, Order> | null>(null);
 
   // Isolated PII fields (saved only to /orders/{id}/private/customer)
   const [customerName, setCustomerName] = useState<string>('');
@@ -112,6 +126,111 @@ export const WaiterView: React.FC = () => {
     [orders]
   );
 
+  // Saved active orders taken by THIS waiter — automatically removed as soon as Cashier collects payment
+  const myActiveOrders = useMemo(
+    () =>
+      orders
+        .filter(
+          (o) =>
+            o.waiterUid === currentStaff?.uid &&
+            o.status !== 'paid' &&
+            o.status !== 'cancelled'
+        )
+        .sort((a, b) => b.createdAtMs - a.createdAtMs),
+    [orders, currentStaff?.uid]
+  );
+
+  // Restore any unsent waiter draft saved before an app update or restart
+  useEffect(() => {
+    if (!draftStorageKey || draftHydratedRef.current) return;
+    draftHydratedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(draftStorageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        serviceType?: ServiceType;
+        diners?: OrderDiner[];
+        draftItems?: OrderLineItem[];
+        splitSharedEqually?: boolean;
+        orderNotes?: string;
+      };
+      if (Array.isArray(saved.draftItems) && saved.draftItems.length > 0) {
+        if (saved.serviceType && SERVICE_TYPES.includes(saved.serviceType)) {
+          setServiceType(saved.serviceType);
+        }
+        if (Array.isArray(saved.diners) && saved.diners.length > 0) {
+          setDiners(saved.diners);
+          setActiveDinerId(saved.diners[0].id);
+        }
+        setDraftItems(saved.draftItems);
+        if (typeof saved.splitSharedEqually === 'boolean') {
+          setSplitSharedEqually(saved.splitSharedEqually);
+        }
+        if (typeof saved.orderNotes === 'string') {
+          setOrderNotes(saved.orderNotes);
+        }
+      }
+    } catch {
+      // Ignore malformed local draft
+    }
+  }, [draftStorageKey]);
+
+  // Continuously persist unsent new draft locally so updates or restarts never lose work in progress
+  useEffect(() => {
+    if (!draftStorageKey || !draftHydratedRef.current) return;
+    try {
+      if (!editingOrderId && draftItems.length > 0) {
+        window.localStorage.setItem(
+          draftStorageKey,
+          JSON.stringify({
+            serviceType,
+            diners,
+            draftItems,
+            splitSharedEqually,
+            orderNotes,
+          })
+        );
+      } else if (!editingOrderId && draftItems.length === 0) {
+        window.localStorage.removeItem(draftStorageKey);
+      }
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [draftStorageKey, editingOrderId, serviceType, diners, draftItems, splitSharedEqually, orderNotes]);
+
+  // Notify waiter in real time when Cashier marks one of their orders paid (and auto-removes it)
+  useEffect(() => {
+    if (!currentStaff?.uid) return;
+    const currentActiveMap = new Map<string, Order>();
+    for (const ord of myActiveOrders) {
+      currentActiveMap.set(ord.id, ord);
+    }
+
+    if (prevMyOrdersRef.current === null) {
+      prevMyOrdersRef.current = currentActiveMap;
+      return;
+    }
+
+    for (const [prevId, prevOrder] of prevMyOrdersRef.current.entries()) {
+      if (!currentActiveMap.has(prevId)) {
+        const latest = orders.find((o) => o.id === prevId);
+        if (latest?.status === 'paid') {
+          notify(
+            `Pedido ${prevOrder.folio} (${prevOrder.serviceType}) fue cobrado en Caja y retirado de tus pedidos.`,
+            'success'
+          );
+        } else if (latest?.status === 'cancelled' && editingOrderId !== prevId) {
+          notify(
+            `Pedido ${prevOrder.folio} (${prevOrder.serviceType}) fue cancelado por el Administrador.`,
+            'info'
+          );
+        }
+      }
+    }
+
+    prevMyOrdersRef.current = currentActiveMap;
+  }, [myActiveOrders, orders, currentStaff?.uid, editingOrderId, notify]);
+
   const filteredMenu = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     return menuItems.filter((item) => {
@@ -146,6 +265,13 @@ export const WaiterView: React.FC = () => {
     setReference('');
     setEditingNoteLineId(null);
     setFormError(null);
+    if (draftStorageKey) {
+      try {
+        window.localStorage.removeItem(draftStorageKey);
+      } catch {
+        // Ignore storage cleanup error
+      }
+    }
   };
 
   // Auto-exit edit mode if Kitchen or Admin moves the active order out of editable statuses in real time
@@ -538,10 +664,10 @@ export const WaiterView: React.FC = () => {
         )}
       </section>
 
-      {/* Main Split Workspace: Menu Catalog (Left) + Order Ticket Builder (Right) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      {/* Main 3-Column Workspace: Menu Catalog (Left) + Order Composer (Center) + Saved Waiter Orders Sidebar (Right) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* Left: Menu Catalog */}
-        <section className="xl:col-span-7 bg-[#161210] border border-stone-800 rounded-xl p-4 sm:p-5 space-y-4">
+        <section className="xl:col-span-5 bg-[#161210] border border-stone-800 rounded-xl p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="font-heading text-xl uppercase tracking-wide text-white">
@@ -666,8 +792,8 @@ export const WaiterView: React.FC = () => {
           )}
         </section>
 
-        {/* Right: Active Order & Split Accounts Composer */}
-        <section className="xl:col-span-5 bg-[#161210] border border-stone-800 rounded-xl p-4 sm:p-5 space-y-4">
+        {/* Center: Active Order & Split Accounts Composer */}
+        <section className="xl:col-span-4 bg-[#161210] border border-stone-800 rounded-xl p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-stone-800">
             <div>
               <h2 className="font-heading text-xl uppercase tracking-wide text-white">
@@ -984,12 +1110,124 @@ export const WaiterView: React.FC = () => {
                 {submitting
                   ? 'Enviando...'
                   : editingOrderId
-                    ? 'Guardar Cambios en Comanda'
+                    ? 'Guardar Cambios (Cocina y Caja)'
                     : 'Enviar Pedido a Cocina'}
               </span>
             </button>
           </div>
         </section>
+
+        {/* Right Sidebar: Waiter's Saved Active Orders (live changes -> Kitchen & Cashier; auto-removed once paid in Cashier) */}
+        <aside
+          aria-label="Mis pedidos activos guardados"
+          className="xl:col-span-3 bg-[#161210] border border-stone-800 rounded-xl p-4 space-y-3.5 xl:sticky xl:top-20"
+        >
+          <div className="border-b border-stone-800 pb-3">
+            <h2 className="font-heading text-lg uppercase tracking-wide text-white flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Mis Pedidos</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-orange-600/20 border border-orange-500/40 font-mono-tabular text-xs text-amber-300">
+                {myActiveOrders.length}
+              </span>
+            </h2>
+            <p className="text-[11px] text-stone-400 mt-1 leading-relaxed">
+              Tus pedidos quedan guardados aquí para hacer cambios al instante hacia Cocina y Caja.
+              Se borran automáticamente cuando Caja cobra.
+            </p>
+          </div>
+
+          {myActiveOrders.length === 0 ? (
+            <div className="py-10 px-3 text-center border border-dashed border-stone-800 rounded-lg text-xs text-stone-500">
+              No tienes pedidos activos por cobrar. Cuando envíes una comanda aparecerá aquí.
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[640px] overflow-y-auto pr-1">
+              {myActiveOrders.map((ord) => {
+                const meta = ORDER_STATUS_META[ord.status];
+                const isEditingThis = editingOrderId === ord.id;
+                const canEditOrder = ord.status === 'pending' || ord.status === 'preparing';
+                const totalQty = ord.items.reduce((acc, i) => acc + i.qty, 0);
+
+                return (
+                  <article
+                    key={ord.id}
+                    className={`p-3 rounded-lg border transition space-y-2 ${
+                      isEditingThis
+                        ? 'bg-orange-600/15 border-orange-500'
+                        : 'bg-[#120f0d] border-stone-800 hover:border-stone-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-heading text-sm uppercase tracking-wide text-white leading-tight truncate">
+                          {ord.serviceType} · {ord.folio}
+                        </p>
+                        <p className={`text-[11px] font-semibold mt-0.5 ${meta.colorClass}`}>
+                          {meta.label}
+                        </p>
+                      </div>
+                      <span className="font-mono-tabular text-sm font-bold text-amber-400 shrink-0">
+                        {formatMXN(ord.total)}
+                      </span>
+                    </div>
+
+                    <ul className="space-y-0.5 text-[11px] text-stone-300 border-t border-stone-800/80 pt-2">
+                      {ord.items.slice(0, 4).map((item) => (
+                        <li key={item.lineId} className="truncate">
+                          <span className="font-mono-tabular text-amber-400 font-semibold mr-1">
+                            {item.qty}x
+                          </span>
+                          <span>{item.name}</span>
+                          {item.notes ? (
+                            <span className="text-stone-500"> ({item.notes})</span>
+                          ) : null}
+                        </li>
+                      ))}
+                      {ord.items.length > 4 && (
+                        <li className="text-[10px] text-stone-500">
+                          +{ord.items.length - 4} platillos más ({totalQty} uds. en total)
+                        </li>
+                      )}
+                    </ul>
+
+                    <div className="pt-1.5 flex items-center gap-1.5">
+                      {canEditOrder ? (
+                        <button
+                          type="button"
+                          onClick={() => loadOrderIntoEditor(ord)}
+                          className={`flex-1 py-1.5 px-2.5 rounded-md text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition ${
+                            isEditingThis
+                              ? 'bg-orange-600 text-white'
+                              : 'bg-stone-800 hover:bg-orange-600 text-stone-100'
+                          }`}
+                        >
+                          <Edit3 className="w-3 h-3 shrink-0" />
+                          <span>{isEditingThis ? 'Editando ahora' : 'Hacer Cambio'}</span>
+                        </button>
+                      ) : ord.status === 'ready' ? (
+                        <button
+                          type="button"
+                          disabled={servingOrderId !== null}
+                          onClick={() => void handleMarkServed(ord.id)}
+                          className="flex-1 py-1.5 px-2.5 rounded-md bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 text-white text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition"
+                        >
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          <span>{servingOrderId === ord.id ? 'Sirviendo...' : 'Marcar Servida'}</span>
+                        </button>
+                      ) : (
+                        <div className="flex-1 text-center py-1 text-[11px] text-sky-400 font-medium">
+                          En Caja · Esperando pago
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </aside>
       </div>
     </div>
   );

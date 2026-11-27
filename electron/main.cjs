@@ -223,6 +223,13 @@ function getLightweightUpdaterState() {
   };
 }
 
+function getCashCutsDirectory() {
+  const docsDir = app.getPath('documents');
+  const cutsDir = path.join(docsDir, 'LA OBRERA POS', 'Cortes de Caja');
+  fs.mkdirSync(cutsDir, { recursive: true });
+  return cutsDir;
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('app:get-version', () => app.getVersion());
 
@@ -234,6 +241,50 @@ function registerIpcHandlers() {
       }
     } catch {
       // Ignore invalid external URLs
+    }
+  });
+
+  ipcMain.handle('files:save-cash-cut-pdf', async (_event, payload) => {
+    try {
+      const rawName = String(payload?.filename || 'corte-caja-la-obrera.pdf');
+      const safeName = path.basename(rawName).replace(/[^a-zA-Z0-9._-]/g, '_') || 'corte-caja.pdf';
+      const base64Data = String(payload?.base64Data || '');
+      if (!base64Data) {
+        return { ok: false, error: 'El PDF está vacío.' };
+      }
+
+      const cutsDir = getCashCutsDirectory();
+      const parsed = path.parse(safeName);
+      let targetPath = path.join(cutsDir, safeName);
+      if (fs.existsSync(targetPath)) {
+        const stamp = new Date()
+          .toISOString()
+          .replace(/[:.]/g, '-')
+          .slice(11, 19);
+        targetPath = path.join(cutsDir, `${parsed.name}-${stamp}${parsed.ext || '.pdf'}`);
+      }
+
+      const pdfBuffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(targetPath, pdfBuffer);
+      return { ok: true, savedPath: targetPath, folderPath: cutsDir };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'No se pudo guardar el archivo PDF.',
+      };
+    }
+  });
+
+  ipcMain.handle('files:open-cash-cuts-folder', async () => {
+    try {
+      const cutsDir = getCashCutsDirectory();
+      await shell.openPath(cutsDir);
+      return { ok: true, folderPath: cutsDir };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'No se pudo abrir la carpeta de cortes.',
+      };
     }
   });
 

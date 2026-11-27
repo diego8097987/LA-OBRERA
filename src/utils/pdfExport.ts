@@ -3,6 +3,7 @@ import type { DailyReport, Order } from '../types/pos';
 import {
   calculateDinerBreakdowns,
   computeDailySalesSummary,
+  computeShiftSalesSummary,
   formatMXN,
   roundMoney,
 } from './posCalculations';
@@ -263,17 +264,31 @@ export async function downloadOrderTicketPdf(order: Order, dinerId?: string): Pr
  * Generates and downloads a formal A4 Cash Register Cut (Corte de Caja) PDF
  * executed by the Cashier role.
  */
+export interface CashCutPdfResult {
+  filename: string;
+  archivedPath?: string;
+}
+
 export async function downloadCashCutPdf(params: {
   report: DailyReport;
   orders: Order[];
-}): Promise<string> {
+  includeAllShiftOrders?: boolean;
+  autoArchiveToDesktop?: boolean;
+}): Promise<CashCutPdfResult> {
   const jsPDF = await loadJsPdf();
-  const { report, orders } = params;
-  const dayPaidOrders = orders
-    .filter((o) => o.dateKey === report.dateKey && o.status === 'paid')
+  const { report, orders, includeAllShiftOrders = false, autoArchiveToDesktop = false } = params;
+  const relevantOrders = includeAllShiftOrders
+    ? orders
+    : orders.filter((o) => o.dateKey === report.dateKey);
+  const dayPaidOrders = relevantOrders
+    .filter((o) => o.status === 'paid')
     .sort((a, b) => (a.paidAtMs || a.updatedAtMs) - (b.paidAtMs || b.updatedAtMs));
 
-  const summary = computeDailySalesSummary(orders, report.dateKey);
+  const summary = includeAllShiftOrders
+    ? computeShiftSalesSummary(orders, report.dateKey)
+    : computeDailySalesSummary(orders, report.dateKey);
+  const effectiveAverageTicket =
+    report.orderCount > 0 ? roundMoney(report.totalSales / report.orderCount) : summary.averageTicket;
   const expectedCash = roundMoney(report.openingCash + report.cashTotal);
   const diffLabel =
     Math.abs(report.cashDifference) < 0.005
@@ -334,7 +349,7 @@ export async function downloadCashCutPdf(params: {
   pdf.text(`Fecha Operativa: ${report.dateKey}`, margin + 108, y + 7);
   pdf.text(`Órdenes Pagadas: ${report.orderCount}`, margin + 4, y + 14);
   pdf.text(`Órdenes Canceladas: ${report.cancelledCount}`, margin + 62, y + 14);
-  pdf.text(`Ticket Promedio: ${formatMXN(summary.averageTicket)}`, margin + 122, y + 14);
+  pdf.text(`Ticket Promedio: ${formatMXN(effectiveAverageTicket)}`, margin + 122, y + 14);
   pdf.setFont('helvetica', 'bold');
   pdf.text(`Total Cobrado del Día: ${formatMXN(report.totalSales)}`, margin + 4, y + 20.5);
   pdf.text(`Propinas Recibidas: ${formatMXN(report.totalTips)}`, margin + 108, y + 20.5);
@@ -401,8 +416,13 @@ export async function downloadCashCutPdf(params: {
     pdf.setFont('helvetica', 'italic');
     pdf.setFontSize(9);
     pdf.setTextColor(110, 110, 110);
-    pdf.text('No se registraron órdenes pagadas en esta fecha.', margin, y);
-    y += 10;
+    const emptyMsg =
+      report.orderCount > 0
+        ? `Los ${report.orderCount} pedidos individuales de este corte ya fueron limpiados al cerrar caja; el resumen oficial permanece respaldado arriba.`
+        : 'No se registraron órdenes pagadas en esta fecha.';
+    const wrappedEmpty = pdf.splitTextToSize(emptyMsg, contentRight - margin) as string[];
+    pdf.text(wrappedEmpty, margin, y);
+    y += wrappedEmpty.length * 4.8 + 5;
   } else {
     drawTableHeader();
     pdf.setTextColor(30, 30, 30);
@@ -463,8 +483,29 @@ export async function downloadCashCutPdf(params: {
   });
 
   const filename = `corte-caja-${report.dateKey}-la-obrera.pdf`;
-  pdf.save(filename);
-  return filename;
+  let archivedPath: string | undefined;
+
+  // On Electron desktop, automatically archive a permanent copy inside Documents\LA OBRERA POS\Cortes de Caja
+  if (autoArchiveToDesktop && typeof window !== 'undefined' && window.obreraDesktop?.files?.saveCashCutPdf) {
+    try {
+      const dataUri = pdf.output('datauristring');
+      const base64 = dataUri.split(',')[1] || '';
+      if (base64) {
+        const res = await window.obreraDesktop.files.saveCashCutPdf(filename, base64);
+        if (res.ok && res.savedPath) {
+          archivedPath = res.savedPath;
+        }
+      }
+    } catch {
+      // Fall back to standard browser download below
+    }
+  }
+
+  // If archived automatically on desktop, skip forcing a duplicate Save As prompt; otherwise save normally
+  if (!archivedPath) {
+    pdf.save(filename);
+  }
+  return { filename, archivedPath };
 }
 
 /**
@@ -475,10 +516,20 @@ export async function downloadDailySalesReportPdf(params: {
   orders: Order[];
   dateKey: string;
   generatedByName: string;
+  savedReport?: DailyReport | null;
 }): Promise<string> {
   const jsPDF = await loadJsPdf();
-  const { orders, dateKey, generatedByName } = params;
+  const { orders, dateKey, generatedByName, savedReport = null } = params;
   const summary = computeDailySalesSummary(orders, dateKey);
+  const effectiveRevenue = roundMoney((savedReport?.totalSales || 0) + summary.totalRevenue);
+  const effectiveTips = roundMoney((savedReport?.totalTips || 0) + summary.totalTips);
+  const effectivePaidCount = (savedReport?.orderCount || 0) + summary.paidOrderCount;
+  const effectiveCancelledCount = (savedReport?.cancelledCount || 0) + summary.cancelledOrderCount;
+  const effectiveCash = roundMoney((savedReport?.cashTotal || 0) + summary.cashTotal);
+  const effectiveCard = roundMoney((savedReport?.cardTotal || 0) + summary.cardTotal);
+  const effectiveTransfer = roundMoney((savedReport?.transferTotal || 0) + summary.transferTotal);
+  const effectiveAvgTicket =
+    effectivePaidCount > 0 ? roundMoney(effectiveRevenue / effectivePaidCount) : 0;
   const dayPaidOrders = orders
     .filter((o) => o.dateKey === dateKey && o.status === 'paid')
     .sort((a, b) => (a.paidAtMs || a.updatedAtMs) - (b.paidAtMs || b.updatedAtMs));
@@ -543,21 +594,21 @@ export async function downloadDailySalesReportPdf(params: {
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(10);
   pdf.setTextColor(20, 20, 20);
-  pdf.text(`Ventas Cobradas: ${formatMXN(summary.totalRevenue)}`, margin + 4, y + 7.5);
-  pdf.text(`Propinas: ${formatMXN(summary.totalTips)}`, margin + 96, y + 7.5);
+  pdf.text(`Ventas Cobradas: ${formatMXN(effectiveRevenue)}`, margin + 4, y + 7.5);
+  pdf.text(`Propinas: ${formatMXN(effectiveTips)}`, margin + 96, y + 7.5);
 
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(9);
-  pdf.text(`Órdenes Pagadas: ${summary.paidOrderCount}`, margin + 4, y + 15);
-  pdf.text(`Órdenes Canceladas: ${summary.cancelledOrderCount}`, margin + 62, y + 15);
-  pdf.text(`Ticket Promedio: ${formatMXN(summary.averageTicket)}`, margin + 122, y + 15);
+  pdf.text(`Órdenes Pagadas: ${effectivePaidCount}`, margin + 4, y + 15);
+  pdf.text(`Órdenes Canceladas: ${effectiveCancelledCount}`, margin + 62, y + 15);
+  pdf.text(`Ticket Promedio: ${formatMXN(effectiveAvgTicket)}`, margin + 122, y + 15);
 
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(9);
   pdf.setTextColor(55, 55, 55);
-  pdf.text(`Efectivo: ${formatMXN(summary.cashTotal)}`, margin + 4, y + 22.5);
-  pdf.text(`Tarjeta: ${formatMXN(summary.cardTotal)}`, margin + 62, y + 22.5);
-  pdf.text(`Transferencia: ${formatMXN(summary.transferTotal)}`, margin + 122, y + 22.5);
+  pdf.text(`Efectivo: ${formatMXN(effectiveCash)}`, margin + 4, y + 22.5);
+  pdf.text(`Tarjeta: ${formatMXN(effectiveCard)}`, margin + 62, y + 22.5);
+  pdf.text(`Transferencia: ${formatMXN(effectiveTransfer)}`, margin + 122, y + 22.5);
 
   y += 36;
 

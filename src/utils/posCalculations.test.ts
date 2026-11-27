@@ -11,10 +11,12 @@ import {
   canCancelOrder,
   canTransitionOrderStatus,
   computeDailySalesSummary,
+  computeShiftSalesSummary,
   escapeCsvCell,
   formatMXN,
   getKitchenUrgency,
   isValidFirestoreId,
+  mergeDailyReportTotals,
   roundMoney,
   validateCancellationReason,
   validateNewMenuItemInput,
@@ -492,4 +494,98 @@ test('validateCancellationReason and buildCancellationAuditSummary enforce audit
   assert.ok(summary.length >= 3 && summary.length <= 200);
   assert.ok(summary.includes('OBR-554433'));
   assert.ok(summary.includes('Carlos Mesero'));
+});
+
+test('computeShiftSalesSummary captures open-shift orders across calendar dates before cash close', () => {
+  const crossMidnightOrders: Order[] = [
+    {
+      id: 'o1',
+      folio: 'OBR-3001',
+      serviceType: 'Mesa 1',
+      status: 'paid',
+      dateKey: '2026-11-26',
+      waiterUid: 'w1',
+      waiterName: 'Ana',
+      diners: [sampleDiners[0]],
+      items: [sampleItems[0]],
+      splitSharedEqually: false,
+      subtotal: 610,
+      tip: 40,
+      total: 650,
+      paymentMethod: 'efectivo',
+      amountReceived: 700,
+      changeGiven: 50,
+      hasDeliveryInfo: false,
+      orderNotes: '',
+      createdAtMs: 1000,
+      updatedAtMs: 2000,
+      paidAtMs: 2000,
+    },
+    {
+      id: 'o2',
+      folio: 'OBR-3002',
+      serviceType: 'Mesa 2',
+      status: 'paid',
+      dateKey: '2026-11-27',
+      waiterUid: 'w1',
+      waiterName: 'Ana',
+      diners: [sampleDiners[0]],
+      items: [sampleItems[1]],
+      splitSharedEqually: false,
+      subtotal: 90,
+      tip: 10,
+      total: 100,
+      paymentMethod: 'tarjeta',
+      amountReceived: 100,
+      changeGiven: 0,
+      hasDeliveryInfo: false,
+      orderNotes: '',
+      createdAtMs: 3000,
+      updatedAtMs: 4000,
+      paidAtMs: 4000,
+    },
+  ];
+  const shiftSummary = computeShiftSalesSummary(crossMidnightOrders, '2026-11-26');
+  assert.equal(shiftSummary.paidOrderCount, 2);
+  assert.equal(shiftSummary.totalRevenue, 750);
+  assert.equal(shiftSummary.cashTotal, 650);
+  assert.equal(shiftSummary.cardTotal, 100);
+});
+
+test('mergeDailyReportTotals preserves multi-shift daily sales and satisfies Firestore reconciliation invariant', () => {
+  const merged = mergeDailyReportTotals(
+    {
+      totalSales: 1500,
+      totalTips: 100,
+      orderCount: 4,
+      cancelledCount: 1,
+      cashTotal: 1000,
+      cardTotal: 500,
+      transferTotal: 0,
+      openingCash: 500,
+      countedCash: 1500,
+    },
+    {
+      totalSales: 2000,
+      totalTips: 150,
+      orderCount: 6,
+      cancelledCount: 0,
+      cashTotal: 1200,
+      cardTotal: 500,
+      transferTotal: 300,
+      openingCash: 500,
+      countedCash: 1680,
+    }
+  );
+  assert.equal(merged.totalSales, 3500);
+  assert.equal(merged.orderCount, 10);
+  assert.equal(merged.cancelledCount, 1);
+  assert.equal(merged.cashTotal, 2200);
+  assert.equal(merged.openingCash, 1000);
+  assert.equal(merged.countedCash, 3180);
+  assert.equal(merged.cashDifference, -20);
+  // Firestore invariant check: abs(cashDifference - (countedCash - (openingCash + cashTotal))) <= 0.01
+  assert.ok(
+    Math.abs(merged.cashDifference - (merged.countedCash - (merged.openingCash + merged.cashTotal))) <= 0.01
+  );
 });

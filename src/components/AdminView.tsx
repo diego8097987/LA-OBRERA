@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   FileDown,
+  FolderOpen,
   Lock,
   Plus,
   Receipt,
@@ -41,6 +42,7 @@ import {
   canCancelOrder,
   CANCELLATION_REASON_PRESETS,
   computeDailySalesSummary,
+  computeShiftSalesSummary,
   formatMXN,
   getLocalDateKey,
   MAX_CANCEL_REASON_LENGTH,
@@ -194,9 +196,53 @@ export const AdminView: React.FC = () => {
     isRegisterOpen && cashRegister?.dateKey ? cashRegister.dateKey : todayKey;
 
   const registerShiftSummary = useMemo(
-    () => computeDailySalesSummary(orders, activeRegisterDateKey),
+    () => computeShiftSalesSummary(orders, activeRegisterDateKey),
     [orders, activeRegisterDateKey]
   );
+
+  // Preserve displayed daily sales totals even AFTER closing the cash register clears active orders
+  const selectedDaySavedReport = useMemo(
+    () => dailyReports.find((r) => r.dateKey === selectedDateKey) || null,
+    [dailyReports, selectedDateKey]
+  );
+
+  const effectiveDayMetrics = useMemo(() => {
+    const totalRevenue = roundMoney(
+      (selectedDaySavedReport?.totalSales || 0) + summary.totalRevenue
+    );
+    const totalTips = roundMoney((selectedDaySavedReport?.totalTips || 0) + summary.totalTips);
+    const paidOrderCount = (selectedDaySavedReport?.orderCount || 0) + summary.paidOrderCount;
+    const cancelledOrderCount =
+      (selectedDaySavedReport?.cancelledCount || 0) + summary.cancelledOrderCount;
+    const cashTotal = roundMoney((selectedDaySavedReport?.cashTotal || 0) + summary.cashTotal);
+    const cardTotal = roundMoney((selectedDaySavedReport?.cardTotal || 0) + summary.cardTotal);
+    const transferTotal = roundMoney(
+      (selectedDaySavedReport?.transferTotal || 0) + summary.transferTotal
+    );
+    const averageTicket = paidOrderCount > 0 ? roundMoney(totalRevenue / paidOrderCount) : 0;
+    return {
+      totalRevenue,
+      totalTips,
+      paidOrderCount,
+      cancelledOrderCount,
+      cashTotal,
+      cardTotal,
+      transferTotal,
+      averageTicket,
+    };
+  }, [selectedDaySavedReport, summary]);
+
+  const hasDesktopPdfFolder =
+    typeof window !== 'undefined' && Boolean(window.obreraDesktop?.files?.openCashCutsFolder);
+
+  const handleOpenCashCutsFolder = async () => {
+    const fn = window.obreraDesktop?.files?.openCashCutsFolder;
+    if (!fn) return;
+    const res = await fn();
+    if (!res.ok) {
+      notify(res.error || 'No se pudo abrir la carpeta de Cortes PDF.', 'error');
+    }
+  };
 
   const activeOpeningCash = cashRegister?.openingCash ?? 0;
   const expectedCashNow = roundMoney(activeOpeningCash + registerShiftSummary.cashTotal);
@@ -226,6 +272,7 @@ export const AdminView: React.FC = () => {
       orders,
       dateKey: selectedDateKey,
       generatedByName: currentStaff?.displayName || 'Administrador',
+      savedReport: selectedDaySavedReport,
     });
     notify(`Reporte Diario de Ventas PDF descargado (${filename}).`, 'success');
   };
@@ -335,11 +382,19 @@ export const AdminView: React.FC = () => {
     }
     setClosingRegister(true);
     try {
-      const savedReport = await closeCashRegisterAndSaveCut({
+      const result = await closeCashRegisterAndSaveCut({
         dateKey: activeRegisterDateKey,
         countedCash: cashCutPreview.countedCash,
       });
-      await downloadCashCutPdf({ report: savedReport, orders });
+      const pdfRes = await downloadCashCutPdf({
+        report: result.shiftReport,
+        orders: result.ordersSnapshot,
+        includeAllShiftOrders: true,
+        autoArchiveToDesktop: true,
+      });
+      if (pdfRes.archivedPath) {
+        notify(`PDF de corte archivado en: ${pdfRes.archivedPath}`, 'success');
+      }
       setShowCloseRegisterModal(false);
     } catch (err) {
       setCloseRegisterError(extractFriendlyErrorMessage(err, 'No se pudo cerrar la caja.'));
@@ -476,6 +531,17 @@ export const AdminView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {hasDesktopPdfFolder && (
+            <button
+              type="button"
+              onClick={() => void handleOpenCashCutsFolder()}
+              className="px-3.5 py-2 rounded-lg bg-stone-900 hover:bg-stone-800 border border-stone-700 text-xs font-semibold text-stone-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition"
+            >
+              <FolderOpen className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Carpeta Cortes PDF</span>
+            </button>
+          )}
+
           {todaySavedCut && (
             <button
               type="button"
@@ -513,22 +579,24 @@ export const AdminView: React.FC = () => {
         </div>
       </section>
 
-      {/* KPI Strip */}
+      {/* KPI Strip (Combines saved daily report + current open-shift orders so sales remain visible after cash close) */}
       <section aria-label="Indicadores del día" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#161210] border border-stone-800 rounded-xl p-4">
           <p className="text-xs text-stone-400">Ventas Cobradas ({selectedDateKey})</p>
           <p className="font-mono-tabular text-2xl font-bold text-amber-400 mt-1">
-            {formatMXN(summary.totalRevenue)}
+            {formatMXN(effectiveDayMetrics.totalRevenue)}
           </p>
           <p className="text-xs text-stone-500 mt-1">
-            {summary.paidOrderCount} órdenes pagadas · {formatMXN(summary.totalTips)} propinas
+            {effectiveDayMetrics.paidOrderCount} órdenes pagadas ·{' '}
+            {formatMXN(effectiveDayMetrics.totalTips)} propinas
+            {selectedDaySavedReport ? ' · Guardado en cierre' : ''}
           </p>
         </div>
 
         <div className="bg-[#161210] border border-stone-800 rounded-xl p-4">
           <p className="text-xs text-stone-400">Órdenes Activas Ahora</p>
           <p className="font-mono-tabular text-2xl font-bold text-white mt-1">
-            {summary.activeOrderCount}
+            {activeWaiterOrders.length}
           </p>
           <p className="text-xs text-stone-500 mt-1">
             En cocina, listas o servidas
@@ -538,20 +606,21 @@ export const AdminView: React.FC = () => {
         <div className="bg-[#161210] border border-stone-800 rounded-xl p-4">
           <p className="text-xs text-stone-400">Ticket Promedio</p>
           <p className="font-mono-tabular text-2xl font-bold text-white mt-1">
-            {formatMXN(summary.averageTicket)}
+            {formatMXN(effectiveDayMetrics.averageTicket)}
           </p>
           <p className="text-xs text-stone-500 mt-1">
-            {summary.cancelledOrderCount} canceladas
+            {effectiveDayMetrics.cancelledOrderCount} canceladas
           </p>
         </div>
 
         <div className="bg-[#161210] border border-stone-800 rounded-xl p-4">
           <p className="text-xs text-stone-400">Desglose de Cobro</p>
           <p className="font-mono-tabular text-sm font-semibold text-stone-200 mt-1.5">
-            Efectivo: {formatMXN(summary.cashTotal)}
+            Efectivo: {formatMXN(effectiveDayMetrics.cashTotal)}
           </p>
           <p className="font-mono-tabular text-xs text-stone-400 mt-0.5">
-            Tarjeta: {formatMXN(summary.cardTotal)} · Transf: {formatMXN(summary.transferTotal)}
+            Tarjeta: {formatMXN(effectiveDayMetrics.cardTotal)} · Transf:{' '}
+            {formatMXN(effectiveDayMetrics.transferTotal)}
           </p>
         </div>
       </section>
@@ -1730,11 +1799,25 @@ export const AdminView: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <p className="text-stone-400">Total General Día</p>
+                  <p className="text-stone-400">Total General Turno</p>
                   <p className="font-mono-tabular text-base font-bold text-amber-400">
                     {formatMXN(registerShiftSummary.totalRevenue)}
                   </p>
                 </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-stone-900/80 border border-stone-800 text-[11px] text-stone-300 space-y-1 leading-relaxed">
+                <p>
+                  Al cerrar caja se guardará el <strong className="text-white">registro permanente de ventas</strong> en Firebase y el{' '}
+                  <strong className="text-amber-300">PDF oficial del corte</strong> (archivado automáticamente en{' '}
+                  <span className="font-mono-tabular text-stone-200">Documentos\LA OBRERA POS\Cortes de Caja</span>), y se{' '}
+                  <strong className="text-white">limpiarán los {orders.length} pedidos del turno</strong> ({registerShiftSummary.paidOrderCount} pagados, {registerShiftSummary.cancelledOrderCount} cancelados).
+                </p>
+                {registerShiftSummary.activeOrderCount > 0 && (
+                  <p className="text-amber-300 font-semibold">
+                    Atención: aún hay {registerShiftSummary.activeOrderCount} pedido(s) activo(s) sin cobrar que también se limpiarán al cerrar la caja.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">

@@ -33,6 +33,13 @@ export interface ObreraDesktopBridge {
   platform: string;
   getVersion: () => Promise<string>;
   openExternal: (url: string) => Promise<void>;
+  files?: {
+    saveCashCutPdf: (
+      filename: string,
+      base64Data: string
+    ) => Promise<{ ok: boolean; savedPath?: string; folderPath?: string; error?: string }>;
+    openCashCutsFolder: () => Promise<{ ok: boolean; folderPath?: string; error?: string }>;
+  };
   updater: {
     getState: () => Promise<DesktopUpdaterState | null>;
     checkForUpdates: () => Promise<DesktopUpdaterState | null>;

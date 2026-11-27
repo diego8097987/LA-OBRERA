@@ -69,7 +69,7 @@ import {
   calculateItemsSubtotal,
   canCancelOrder,
   canTransitionOrderStatus,
-  computeDailySalesSummary,
+  computeShiftSalesSummary,
   generateOrderFolio,
   getLocalDateKey,
   MAX_COLONY_LENGTH,
@@ -82,6 +82,7 @@ import {
   MAX_PHONE_LENGTH,
   MAX_REFERENCE_LENGTH,
   MAX_STREET_LENGTH,
+  mergeDailyReportTotals,
   roundMoney,
   sanitizeText,
   validateCancellationReason,
@@ -142,6 +143,13 @@ export interface CloseCashRegisterPayload {
   countedCash: number;
 }
 
+export interface CloseCashRegisterResult {
+  shiftReport: DailyReport;
+  savedDailyReport: DailyReport;
+  ordersSnapshot: Order[];
+  clearedOrdersCount: number;
+}
+
 interface PosContextValue {
   authReady: boolean;
   firebaseUser: User | null;
@@ -184,7 +192,9 @@ interface PosContextValue {
   updateStaffRole: (uid: string, role: StaffRole, active: boolean) => Promise<void>;
   deletePendingStaff: (uid: string) => Promise<void>;
   openCashRegister: (openingCash: number) => Promise<CashRegisterState>;
-  closeCashRegisterAndSaveCut: (payload: CloseCashRegisterPayload) => Promise<DailyReport>;
+  closeCashRegisterAndSaveCut: (
+    payload: CloseCashRegisterPayload
+  ) => Promise<CloseCashRegisterResult>;
   toast: ToastNotice | null;
   notify: (message: string, tone?: 'success' | 'info' | 'error') => void;
 }
@@ -1641,7 +1651,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const closeCashRegisterAndSaveCut = useCallback(
-    async (payload: CloseCashRegisterPayload): Promise<DailyReport> => {
+    async (payload: CloseCashRegisterPayload): Promise<CloseCashRegisterResult> => {
       if (!currentStaff || currentStaff.role !== 'admin') {
         throw new Error('Solo el Administrador puede cerrar la caja y emitir el corte.');
       }
@@ -1649,7 +1659,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('La caja ya se encuentra cerrada.');
       }
 
-      const summary = computeDailySalesSummary(orders, payload.dateKey);
+      // Snapshot ALL orders belonging to the open shift BEFORE clearing them
+      const ordersSnapshot = [...orders];
+      const summary = computeShiftSalesSummary(ordersSnapshot, payload.dateKey);
       const reconciliation = calculateCashCutReconciliation({
         openingCash: cashRegister.openingCash,
         cashSales: summary.cashTotal,
@@ -1662,7 +1674,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const adminName = safePersonName(currentStaff.displayName, 'Administrador');
       const now = Date.now();
-      const report: DailyReport = {
+      const shiftReport: DailyReport = {
         dateKey: payload.dateKey,
         totalSales: summary.totalRevenue,
         totalTips: summary.totalTips,
@@ -1685,6 +1697,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const repRef = doc(db, 'daily_reports', payload.dateKey);
         const existingRep = await getDoc(repRef);
 
+        let savedDailyReport: DailyReport = shiftReport;
         const batch = writeBatch(db);
         batch.update(regRef, {
           isOpen: false,
@@ -1697,49 +1710,93 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         if (existingRep.exists()) {
+          const prev = existingRep.data();
+          const merged = mergeDailyReportTotals(
+            {
+              totalSales: Number(prev.totalSales || 0),
+              totalTips: Number(prev.totalTips || 0),
+              orderCount: Number(prev.orderCount || 0),
+              cancelledCount: Number(prev.cancelledCount || 0),
+              cashTotal: Number(prev.cashTotal || 0),
+              cardTotal: Number(prev.cardTotal || 0),
+              transferTotal: Number(prev.transferTotal || 0),
+              openingCash: Number(prev.openingCash || 0),
+              countedCash: Number(prev.countedCash || 0),
+            },
+            shiftReport
+          );
+          savedDailyReport = {
+            ...shiftReport,
+            ...merged,
+          };
           batch.update(repRef, {
-            totalSales: report.totalSales,
-            totalTips: report.totalTips,
-            orderCount: report.orderCount,
-            cancelledCount: report.cancelledCount,
-            cashTotal: report.cashTotal,
-            cardTotal: report.cardTotal,
-            transferTotal: report.transferTotal,
-            openingCash: report.openingCash,
-            countedCash: report.countedCash,
-            cashDifference: report.cashDifference,
-            generatedByUid: report.generatedByUid,
-            generatedByName: report.generatedByName,
+            totalSales: savedDailyReport.totalSales,
+            totalTips: savedDailyReport.totalTips,
+            orderCount: savedDailyReport.orderCount,
+            cancelledCount: savedDailyReport.cancelledCount,
+            cashTotal: savedDailyReport.cashTotal,
+            cardTotal: savedDailyReport.cardTotal,
+            transferTotal: savedDailyReport.transferTotal,
+            openingCash: savedDailyReport.openingCash,
+            countedCash: savedDailyReport.countedCash,
+            cashDifference: savedDailyReport.cashDifference,
+            generatedByUid: savedDailyReport.generatedByUid,
+            generatedByName: savedDailyReport.generatedByName,
             updatedAt: serverTimestamp(),
           });
         } else {
           batch.set(repRef, {
-            dateKey: report.dateKey,
-            totalSales: report.totalSales,
-            totalTips: report.totalTips,
-            orderCount: report.orderCount,
-            cancelledCount: report.cancelledCount,
-            cashTotal: report.cashTotal,
-            cardTotal: report.cardTotal,
-            transferTotal: report.transferTotal,
-            openingCash: report.openingCash,
-            countedCash: report.countedCash,
-            cashDifference: report.cashDifference,
-            generatedByUid: report.generatedByUid,
-            generatedByName: report.generatedByName,
+            dateKey: shiftReport.dateKey,
+            totalSales: shiftReport.totalSales,
+            totalTips: shiftReport.totalTips,
+            orderCount: shiftReport.orderCount,
+            cancelledCount: shiftReport.cancelledCount,
+            cashTotal: shiftReport.cashTotal,
+            cardTotal: shiftReport.cardTotal,
+            transferTotal: shiftReport.transferTotal,
+            openingCash: shiftReport.openingCash,
+            countedCash: shiftReport.countedCash,
+            cashDifference: shiftReport.cashDifference,
+            generatedByUid: shiftReport.generatedByUid,
+            generatedByName: shiftReport.generatedByName,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
         }
 
+        // 1. Commit permanent sales record & close cash register FIRST
         await batch.commit();
+
+        // 2. Clear all closed-shift orders from /orders (and isolated /private/customer docs) in safe batches
+        //    so the next shift starts clean while the permanent sales record & PDF remain preserved.
+        const CHUNK_SIZE = 150;
+        let clearedOrdersCount = 0;
+        for (let i = 0; i < ordersSnapshot.length; i += CHUNK_SIZE) {
+          const chunk = ordersSnapshot.slice(i, i + CHUNK_SIZE);
+          const deleteBatch = writeBatch(db);
+          for (const ord of chunk) {
+            deleteBatch.delete(doc(db, 'orders', ord.id, 'private', 'customer'));
+            deleteBatch.delete(doc(db, 'orders', ord.id));
+          }
+          await deleteBatch.commit();
+          clearedOrdersCount += chunk.length;
+        }
+
         await writeAuditLog(
           'CASH_REGISTER_CLOSED',
           payload.dateKey,
-          `Caja cerrada por ${adminName} (${payload.dateKey}, $${report.totalSales.toFixed(2)}, ${reconciliation.statusLabel})`
+          `Caja cerrada por ${adminName} (${payload.dateKey}, $${shiftReport.totalSales.toFixed(2)}, ${reconciliation.statusLabel}, ${clearedOrdersCount} pedidos archivados y limpiados)`
         );
-        notify(`Caja cerrada en Firebase y Corte PDF ${payload.dateKey} generado.`, 'success');
-        return report;
+        notify(
+          `Caja cerrada: ventas guardadas en registro + PDF y ${clearedOrdersCount} pedidos limpiados.`,
+          'success'
+        );
+        return {
+          shiftReport,
+          savedDailyReport,
+          ordersSnapshot,
+          clearedOrdersCount,
+        };
       } catch (err) {
         logFirestoreError(err, OperationType.WRITE, path);
         throw new Error(extractFriendlyErrorMessage(err, 'No se pudo cerrar la caja.'));

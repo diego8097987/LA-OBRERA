@@ -35,6 +35,7 @@ export const KitchenView: React.FC = () => {
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const seenPendingIdsRef = useRef<Set<string> | null>(null);
+  const activeSignaturesRef = useRef<Map<string, string> | null>(null);
 
   const handleAdvanceOrder = async (orderId: string, nextStatus: 'preparing' | 'ready') => {
     if (busyOrderId === orderId) return;
@@ -77,22 +78,42 @@ export const KitchenView: React.FC = () => {
     [kitchenOrders]
   );
 
-  // Play gentle alert ONLY when a genuinely new pending order arrives (not on initial load or station filter toggle)
+  // Play gentle alert ONLY when a genuinely new pending order arrives OR a waiter modifies an active kitchen order
   useEffect(() => {
     const currentPendingIds = orders.filter((o) => o.status === 'pending').map((o) => o.id);
-    if (seenPendingIdsRef.current === null) {
+    const activeKitchen = orders.filter((o) => o.status === 'pending' || o.status === 'preparing');
+    const nextSignatures = new Map<string, string>();
+    for (const o of activeKitchen) {
+      const sig = `${o.orderNotes}|${o.items.map((i) => `${i.lineId}:${i.qty}:${i.notes}`).join(',')}`;
+      nextSignatures.set(o.id, sig);
+    }
+
+    if (seenPendingIdsRef.current === null || activeSignaturesRef.current === null) {
       seenPendingIdsRef.current = new Set(currentPendingIds);
+      activeSignaturesRef.current = nextSignatures;
       return;
     }
-    let hasNewPending = false;
+
+    let shouldChime = false;
     for (const id of currentPendingIds) {
       if (!seenPendingIdsRef.current.has(id)) {
-        hasNewPending = true;
+        shouldChime = true;
         break;
       }
     }
+    if (!shouldChime) {
+      for (const [id, sig] of nextSignatures.entries()) {
+        const prevSig = activeSignaturesRef.current.get(id);
+        if (prevSig !== undefined && prevSig !== sig) {
+          shouldChime = true;
+          break;
+        }
+      }
+    }
+
     seenPendingIdsRef.current = new Set(currentPendingIds);
-    if (soundEnabled && hasNewPending) {
+    activeSignaturesRef.current = nextSignatures;
+    if (soundEnabled && shouldChime) {
       playKitchenChime();
     }
   }, [orders, soundEnabled]);
@@ -128,9 +149,17 @@ export const KitchenView: React.FC = () => {
           {/* Card Header */}
           <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-stone-800">
             <div>
-              <h3 className="font-heading text-xl uppercase tracking-wide text-white leading-none">
-                {order.serviceType}
-              </h3>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h3 className="font-heading text-xl uppercase tracking-wide text-white leading-none">
+                  {order.serviceType}
+                </h3>
+                {(order.status === 'pending' || order.status === 'preparing') &&
+                  order.updatedAtMs - order.createdAtMs > 2500 && (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                      Modificada
+                    </span>
+                  )}
+              </div>
               <p className="text-xs text-stone-400 mt-1">
                 {order.folio} · Mesero: {order.waiterName}
               </p>

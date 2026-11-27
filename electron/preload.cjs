@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('obreraDesktop', {
   platform: process.platform,
   getVersion: () => ipcRenderer.invoke('app:get-version'),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
+  files: {
+    saveCashCutPdf: (filename, base64Data) =>
+      ipcRenderer.invoke('files:save-cash-cut-pdf', { filename, base64Data }),
+    openCashCutsFolder: () => ipcRenderer.invoke('files:open-cash-cuts-folder'),
+  },
   updater: {
     getState: () => ipcRenderer.invoke('updater:get-state'),
     checkForUpdates: () => ipcRenderer.invoke('updater:check'),

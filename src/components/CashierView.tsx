@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { usePos } from '../context/PosContext';
 import { extractFriendlyErrorMessage } from '../firebase';
-import { useTodayDateKey } from '../hooks/useTodayDateKey';
 import type { Order, PaymentMethod } from '../types/pos';
 import {
   calculateCheckoutPayment,
@@ -31,7 +30,6 @@ export const CashierView: React.FC = () => {
     loadOrderPrivateCustomer,
   } = usePos();
 
-  const todayKey = useTodayDateKey();
   const isRegisterOpen = Boolean(cashRegister?.isOpen);
 
   const payableOrders = useMemo(
@@ -51,12 +49,13 @@ export const CashierView: React.FC = () => {
     [orders]
   );
 
+  // Keep all paid tickets of the current unclosed shift visible until Admin closes cash register
   const paidTodayOrders = useMemo(
     () =>
       orders
-        .filter((o) => o.status === 'paid' && o.dateKey === todayKey)
+        .filter((o) => o.status === 'paid')
         .sort((a, b) => (b.paidAtMs || b.updatedAtMs) - (a.paidAtMs || a.updatedAtMs)),
-    [orders, todayKey]
+    [orders]
   );
 
   const payableTotalAmount = useMemo(
@@ -347,12 +346,19 @@ export const CashierView: React.FC = () => {
                       className="p-3 rounded-lg bg-[#120f0d] border border-stone-800 flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-stone-100 truncate">
-                          {order.serviceType} · {order.folio}
+                        <p className="text-sm font-semibold text-stone-100 truncate flex items-center gap-1.5">
+                          <span className="truncate">
+                            {order.serviceType} · {order.folio}
+                          </span>
+                          {order.updatedAtMs - order.createdAtMs > 2500 && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-semibold text-amber-300 shrink-0">
+                              Actualizada
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-stone-400 truncate">
                           <span className={meta.colorClass}>{meta.shortLabel}</span> · Mesero:{' '}
-                          {order.waiterName}
+                          {order.waiterName} · {order.items.reduce((a, b) => a + b.qty, 0)} arts.
                         </p>
                       </div>
                       <div className="flex items-center gap-2.5 shrink-0">
@@ -378,7 +384,7 @@ export const CashierView: React.FC = () => {
           <section className="bg-[#161210] border border-stone-800 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-stone-800 pb-2.5">
               <h2 className="font-heading text-lg uppercase tracking-wide text-white">
-                Tickets Cobrados Hoy ({paidTodayOrders.length})
+                Tickets Cobrados del Turno ({paidTodayOrders.length})
               </h2>
               <span className="text-xs text-stone-400">Descarga PDF e impresión</span>
             </div>
