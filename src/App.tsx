@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Lock, LogOut, Unlock } from 'lucide-react';
-import { AdminView } from './components/AdminView';
 import { AuthGate } from './components/AuthGate';
 import { BrandLogo } from './components/BrandLogo';
-import { CashierView } from './components/CashierView';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { KitchenView } from './components/KitchenView';
-import { WaiterView } from './components/WaiterView';
+import { DesktopUpdateBanner, DesktopUpdateControls } from './components/UpdateBanner';
 import { PosProvider, usePos } from './context/PosContext';
 import type { ActiveWorkspaceRole } from './types/pos';
+
+// Lazy-load each independent role workspace so startup parses only what the current user needs
+const WaiterView = lazy(() =>
+  import('./components/WaiterView').then((m) => ({ default: m.WaiterView }))
+);
+const KitchenView = lazy(() =>
+  import('./components/KitchenView').then((m) => ({ default: m.KitchenView }))
+);
+const CashierView = lazy(() =>
+  import('./components/CashierView').then((m) => ({ default: m.CashierView }))
+);
+const AdminView = lazy(() =>
+  import('./components/AdminView').then((m) => ({ default: m.AdminView }))
+);
+
+const WorkspaceFallback: React.FC = () => (
+  <div className="py-20 flex flex-col items-center justify-center gap-3 text-xs text-stone-400">
+    <div className="w-8 h-8 rounded-full border-2 border-stone-700 border-t-orange-500 animate-spin" />
+    <span>Cargando estación...</span>
+  </div>
+);
 
 const ROLE_META: Record<ActiveWorkspaceRole, { label: string; scope: string }> = {
   mesero: { label: 'Estación Mesero', scope: 'Toma de órdenes en tiempo real' },
@@ -36,7 +54,14 @@ const PosShell: React.FC = () => {
     !currentStaff.active ||
     currentStaff.role === 'pending'
   ) {
-    return <AuthGate />;
+    return (
+      <div className="min-h-screen bg-[#0e0c0b] flex flex-col">
+        <DesktopUpdateBanner />
+        <div className="flex-1 flex flex-col">
+          <AuthGate />
+        </div>
+      </div>
+    );
   }
 
   const kitchenCount = orders.filter((o) => o.status === 'pending' || o.status === 'preparing').length;
@@ -51,6 +76,8 @@ const PosShell: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0e0c0b] text-[#f5efe6] flex flex-col">
+      <DesktopUpdateBanner />
+
       {/* 3-Zone Top Bar Contract */}
       <header className="sticky top-0 z-40 bg-[#0e0c0b]/95 backdrop-blur-md border-b border-stone-800/90">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
@@ -79,8 +106,9 @@ const PosShell: React.FC = () => {
             </span>
           </nav>
 
-          {/* Zone 3: Single Primary Action */}
-          <div className="shrink-0">
+          {/* Zone 3: Primary Actions */}
+          <div className="shrink-0 flex items-center gap-2">
+            <DesktopUpdateControls variant="header" />
             <button
               type="button"
               onClick={() => void exitSession()}
@@ -126,10 +154,12 @@ const PosShell: React.FC = () => {
 
       {/* Main Independent Workspace */}
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6">
-        {activeWorkspace === 'mesero' && <WaiterView />}
-        {activeWorkspace === 'cocina' && <KitchenView />}
-        {activeWorkspace === 'cajero' && <CashierView />}
-        {activeWorkspace === 'admin' && <AdminView />}
+        <Suspense fallback={<WorkspaceFallback />}>
+          {activeWorkspace === 'mesero' && <WaiterView />}
+          {activeWorkspace === 'cocina' && <KitchenView />}
+          {activeWorkspace === 'cajero' && <CashierView />}
+          {activeWorkspace === 'admin' && <AdminView />}
+        </Suspense>
       </main>
 
       {/* Quiet Footer */}

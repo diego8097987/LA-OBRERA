@@ -113,6 +113,14 @@ export function mapFirebaseAuthError(error: unknown): string {
     case 'auth/popup-closed-by-user':
     case 'auth/cancelled-popup-request':
       return 'Se cerró la ventana de inicio de sesión antes de completar el acceso.';
+    case 'auth/popup-blocked':
+      return 'La ventana emergente de Google fue bloqueada. Permite ventanas emergentes o inicia sesión con correo y contraseña.';
+    case 'auth/unauthorized-domain':
+      return 'Este dominio no está autorizado en Firebase Authentication. Usa correo y contraseña o autoriza el dominio en Firebase Console.';
+    case 'auth/operation-not-supported-in-this-environment':
+      return 'El inicio de sesión con Google no está soportado en este entorno. Usa correo y contraseña.';
+    case 'auth/account-exists-with-different-credential':
+      return 'Ya existe una cuenta con este correo registrada con otro método de acceso.';
     case 'auth/network-request-failed':
       return 'Sin conexión de red. Verifica tu internet e intenta nuevamente.';
     default:

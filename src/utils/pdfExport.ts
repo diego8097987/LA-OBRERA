@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf';
 import { MENU_CATEGORIES } from '../data/menuCatalog';
 import type { DailyReport, Order } from '../types/pos';
 import {
@@ -7,6 +6,16 @@ import {
   formatMXN,
   roundMoney,
 } from './posCalculations';
+
+let jsPdfModulePromise: Promise<typeof import('jspdf')> | null = null;
+
+async function loadJsPdf() {
+  if (!jsPdfModulePromise) {
+    jsPdfModulePromise = import('jspdf');
+  }
+  const mod = await jsPdfModulePromise;
+  return mod.jsPDF;
+}
 
 function sanitizeFileSlug(value: string): string {
   return value
@@ -22,7 +31,8 @@ function sanitizeFileSlug(value: string): string {
  * Generates and downloads an 80mm thermal-receipt style PDF for a full table order
  * or an individual diner split account. Uses pure jsPDF vector text (zero HTML rendering).
  */
-export function downloadOrderTicketPdf(order: Order, dinerId?: string): string {
+export async function downloadOrderTicketPdf(order: Order, dinerId?: string): Promise<string> {
+  const jsPDF = await loadJsPdf();
   const breakdowns = calculateDinerBreakdowns(
     order.diners,
     order.items,
@@ -37,15 +47,30 @@ export function downloadOrderTicketPdf(order: Order, dinerId?: string): string {
     timeStyle: 'short',
   });
 
-  // Pre-calculate needed page height so the 80mm thermal PDF never clips
-  const itemCount = selectedBreakdown
-    ? selectedBreakdown.items.length
-    : order.items.length;
-  const groupCount = selectedBreakdown
-    ? 1
-    : breakdowns.filter((g) => g.items.length > 0 || g.sharedAllocation > 0).length;
-  const deliveryExtra = order.hasDeliveryInfo && order.privateCustomer?.street ? 22 : 0;
-  const estimatedHeight = Math.max(135, 92 + itemCount * 9 + groupCount * 9 + deliveryExtra);
+  // Pre-calculate needed page height accurately (including wrapped names, notes, shared lines & delivery)
+  const itemsToMeasure = selectedBreakdown ? selectedBreakdown.items : order.items;
+  const itemsHeight = itemsToMeasure.reduce((acc, item) => {
+    const labelLen = `${item.qty}x ${item.name}`.length;
+    const wrappedLines = Math.max(1, Math.ceil(labelLen / 22));
+    const noteLines = item.notes ? 1 : 0;
+    return acc + 4.2 + (wrappedLines - 1) * 3.8 + noteLines * 3.8;
+  }, 0);
+  const visibleGroups = selectedBreakdown
+    ? [selectedBreakdown]
+    : breakdowns.filter((g) => g.items.length > 0 || g.sharedAllocation > 0);
+  const groupHeight = visibleGroups.reduce(
+    (acc, g) => acc + 5.5 + (g.sharedAllocation > 0 ? 4.5 : 0),
+    0
+  );
+  const customerExtra =
+    (order.privateCustomer?.customerName ? 4.5 : 0) +
+    (order.privateCustomer?.phone ? 4.5 : 0) +
+    (order.hasDeliveryInfo && order.privateCustomer?.street ? 26 : 0);
+  const paymentExtra = order.status === 'paid' ? 24 : 8;
+  const estimatedHeight = Math.max(
+    145,
+    Math.ceil(84 + itemsHeight + groupHeight + customerExtra + paymentExtra)
+  );
 
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -211,6 +236,9 @@ export function downloadOrderTicketPdf(order: Order, dinerId?: string): string {
       if (order.paymentMethod === 'efectivo') {
         drawKeyValue('Cambio entregado', formatMXN(order.changeGiven), true, 8.5);
       }
+    } else if (order.status === 'cancelled') {
+      y += 1;
+      drawKeyValue('Estado', 'CANCELADO (ADMIN)', true, 8);
     } else {
       y += 1;
       drawKeyValue('Estado', 'PRE-CUENTA', true, 8);
@@ -235,10 +263,11 @@ export function downloadOrderTicketPdf(order: Order, dinerId?: string): string {
  * Generates and downloads a formal A4 Cash Register Cut (Corte de Caja) PDF
  * executed by the Cashier role.
  */
-export function downloadCashCutPdf(params: {
+export async function downloadCashCutPdf(params: {
   report: DailyReport;
   orders: Order[];
-}): string {
+}): Promise<string> {
+  const jsPDF = await loadJsPdf();
   const { report, orders } = params;
   const dayPaidOrders = orders
     .filter((o) => o.dateKey === report.dateKey && o.status === 'paid')
@@ -251,7 +280,7 @@ export function downloadCashCutPdf(params: {
       ? 'CUADRADO ($0.00)'
       : report.cashDifference > 0
         ? `SOBRANTE (+${formatMXN(report.cashDifference)})`
-        : `FALTANTE (-${formatMXN(Math.abs(report.cashDifference))})`;
+        : `FALTANTE (${formatMXN(report.cashDifference)})`;
 
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -442,11 +471,12 @@ export function downloadCashCutPdf(params: {
  * Generates and downloads an executive A4 Daily Sales Report (Reporte Diario de Ventas) PDF
  * for any selected date. Uses pure jsPDF vector text (zero HTML injection).
  */
-export function downloadDailySalesReportPdf(params: {
+export async function downloadDailySalesReportPdf(params: {
   orders: Order[];
   dateKey: string;
   generatedByName: string;
-}): string {
+}): Promise<string> {
+  const jsPDF = await loadJsPdf();
   const { orders, dateKey, generatedByName } = params;
   const summary = computeDailySalesSummary(orders, dateKey);
   const dayPaidOrders = orders

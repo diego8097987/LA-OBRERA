@@ -1,7 +1,10 @@
 node_modules/
-build/
 dist/
+release/
 coverage/
+.aistudio/
+monitor.html
+dev-app-update.yml
 .DS_Store
 *.log
 .env*

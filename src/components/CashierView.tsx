@@ -12,12 +12,12 @@ import {
 } from 'lucide-react';
 import { usePos } from '../context/PosContext';
 import { extractFriendlyErrorMessage } from '../firebase';
+import { useTodayDateKey } from '../hooks/useTodayDateKey';
 import type { Order, PaymentMethod } from '../types/pos';
 import {
   calculateCheckoutPayment,
   calculateDinerBreakdowns,
   formatMXN,
-  getLocalDateKey,
   ORDER_STATUS_META,
   roundMoney,
 } from '../utils/posCalculations';
@@ -31,7 +31,7 @@ export const CashierView: React.FC = () => {
     loadOrderPrivateCustomer,
   } = usePos();
 
-  const todayKey = getLocalDateKey();
+  const todayKey = useTodayDateKey();
   const isRegisterOpen = Boolean(cashRegister?.isOpen);
 
   const payableOrders = useMemo(
@@ -94,13 +94,17 @@ export const CashierView: React.FC = () => {
   }, [selectedOrder?.id, selectedOrder?.subtotal]);
 
   const numericTip = useMemo(() => {
-    const parsed = Number.parseFloat(tipInput);
-    return Number.isFinite(parsed) && parsed >= 0 ? roundMoney(parsed) : 0;
+    const trimmed = tipInput.trim();
+    if (!trimmed) return 0;
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? roundMoney(parsed) : 0;
   }, [tipInput]);
 
   const numericReceived = useMemo(() => {
-    const parsed = Number.parseFloat(amountReceivedInput);
-    return Number.isFinite(parsed) && parsed >= 0 ? roundMoney(parsed) : 0;
+    const trimmed = amountReceivedInput.trim();
+    if (!trimmed) return 0;
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? roundMoney(parsed) : 0;
   }, [amountReceivedInput]);
 
   const checkoutPreview = useMemo(() => {
@@ -594,11 +598,20 @@ export const CashierView: React.FC = () => {
                     {formatMXN(roundMoney(selectedOrder.subtotal + numericTip))}
                   </span>
                 </div>
-                {paymentMethod === 'efectivo' && checkoutPreview && checkoutPreview.valid && (
-                  <div className="flex justify-between text-sm font-semibold text-emerald-400 pt-1">
-                    <span>Cambio a Entregar</span>
-                    <span className="font-mono-tabular">{formatMXN(checkoutPreview.changeGiven)}</span>
-                  </div>
+                {paymentMethod === 'efectivo' && checkoutPreview && (
+                  checkoutPreview.valid ? (
+                    <div className="flex justify-between text-sm font-semibold text-emerald-400 pt-1">
+                      <span>Cambio a Entregar</span>
+                      <span className="font-mono-tabular">{formatMXN(checkoutPreview.changeGiven)}</span>
+                    </div>
+                  ) : numericReceived < checkoutPreview.total && numericTip >= 0 ? (
+                    <div className="flex justify-between text-sm font-semibold text-amber-400 pt-1">
+                      <span>Falta por Recibir</span>
+                      <span className="font-mono-tabular">
+                        {formatMXN(roundMoney(checkoutPreview.total - Math.max(0, numericReceived)))}
+                      </span>
+                    </div>
+                  ) : null
                 )}
               </div>
 

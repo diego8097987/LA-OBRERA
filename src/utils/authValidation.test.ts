@@ -69,4 +69,10 @@ test('mapFirebaseAuthError prevents account enumeration across credential failur
 
   const notAllowed = mapFirebaseAuthError({ code: 'auth/operation-not-allowed' });
   assert.match(notAllowed, /Firebase Console/);
+
+  const popupBlocked = mapFirebaseAuthError({ code: 'auth/popup-blocked' });
+  assert.match(popupBlocked, /emergente/);
+
+  const unauthorizedDomain = mapFirebaseAuthError({ code: 'auth/unauthorized-domain' });
+  assert.match(unauthorizedDomain, /autorizado/);
 });

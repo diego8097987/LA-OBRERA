@@ -51,7 +51,7 @@ function createInitialDiners(): OrderDiner[] {
 }
 
 export const WaiterView: React.FC = () => {
-  const { orders, menuItems, currentStaff, createOrder, appendItemsToOrder, updateOrderStatus, notify } = usePos();
+  const { orders, menuItems, createOrder, appendItemsToOrder, updateOrderStatus, notify } = usePos();
 
   const [serviceType, setServiceType] = useState<ServiceType>('Mesa 3');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -87,6 +87,25 @@ export const WaiterView: React.FC = () => {
     }
     return map;
   }, [orders]);
+
+  const activeCountBySlot = useMemo(() => {
+    const counts = new Map<ServiceType, number>();
+    for (const order of orders) {
+      if (order.status === 'paid' || order.status === 'cancelled') continue;
+      counts.set(order.serviceType, (counts.get(order.serviceType) || 0) + 1);
+    }
+    return counts;
+  }, [orders]);
+
+  const editableMultiSlotOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) =>
+          (o.serviceType === 'Para Llevar' || o.serviceType === 'Servicio a Domicilio') &&
+          (o.status === 'pending' || o.status === 'preparing')
+      ),
+    [orders]
+  );
 
   const readyToServeOrders = useMemo(
     () => orders.filter((o) => o.status === 'ready'),
@@ -125,6 +144,7 @@ export const WaiterView: React.FC = () => {
     setStreet('');
     setColony('');
     setReference('');
+    setEditingNoteLineId(null);
     setFormError(null);
   };
 
@@ -140,8 +160,16 @@ export const WaiterView: React.FC = () => {
       setDraftItems([]);
       setSplitSharedEqually(true);
       setOrderNotes('');
+      setEditingNoteLineId(null);
       setFormError(null);
-      notify('La comanda cambió de estado en tiempo real y se cerró la edición.', 'info');
+      if (liveOrder?.status === 'cancelled') {
+        notify(
+          `La comanda ${liveOrder.folio} fue cancelada por el Administrador.`,
+          'info'
+        );
+      } else {
+        notify('La comanda cambió de estado en tiempo real y se cerró la edición.', 'info');
+      }
     }
   }, [editingOrderId, orders, notify]);
 
@@ -155,19 +183,34 @@ export const WaiterView: React.FC = () => {
     }
   };
 
+  const loadOrderIntoEditor = (existing: Order) => {
+    setServiceType(existing.serviceType);
+    setEditingOrderId(existing.id);
+    const safeDiners = existing.diners.length > 0 ? existing.diners : createInitialDiners();
+    setDiners(safeDiners);
+    setActiveDinerId(safeDiners.find((d) => !d.isShared)?.id || safeDiners[0]?.id || 'diner-1');
+    setDraftItems(existing.items);
+    setSplitSharedEqually(existing.splitSharedEqually);
+    setOrderNotes(existing.orderNotes);
+    setEditingNoteLineId(null);
+    setFormError(null);
+    notify(`Editando comanda activa ${existing.folio} (${existing.serviceType}).`, 'info');
+  };
+
   const handleSelectTableFromMap = (table: ServiceType) => {
+    // Takeout and Delivery can have multiple concurrent orders for different customers,
+    // so clicking them starts a clean new order instead of mixing into another customer's ticket.
+    if (table === 'Para Llevar' || table === 'Servicio a Domicilio') {
+      resetDraft(table);
+      return;
+    }
+
     const existing = activeOrdersByTable.get(table);
     setServiceType(table);
     setFormError(null);
 
     if (existing && (existing.status === 'pending' || existing.status === 'preparing')) {
-      setEditingOrderId(existing.id);
-      setDiners(existing.diners.length > 0 ? existing.diners : createInitialDiners());
-      setActiveDinerId(existing.diners[0]?.id || 'diner-1');
-      setDraftItems(existing.items);
-      setSplitSharedEqually(existing.splitSharedEqually);
-      setOrderNotes(existing.orderNotes);
-      notify(`Editando comanda activa ${existing.folio} (${table}).`, 'info');
+      loadOrderIntoEditor(existing);
     } else {
       resetDraft(table);
     }
@@ -204,7 +247,9 @@ export const WaiterView: React.FC = () => {
     setDiners((prev) => prev.filter((d) => d.id !== dinerId));
     setDraftItems((prev) => prev.filter((i) => i.dinerId !== dinerId));
     if (activeDinerId === dinerId) {
-      const next = diners.find((d) => d.id !== dinerId);
+      const next =
+        diners.find((d) => d.id !== dinerId && !d.isShared) ||
+        diners.find((d) => d.id !== dinerId);
       if (next) setActiveDinerId(next.id);
     }
   };
@@ -214,19 +259,27 @@ export const WaiterView: React.FC = () => {
       notify(`${dish.name} está marcado como Agotado (86).`, 'error');
       return;
     }
-    if (draftItems.length >= MAX_ITEMS_PER_ORDER) {
+    const targetDinerId =
+      diners.find((d) => d.id === activeDinerId)?.id || diners[0]?.id || 'diner-1';
+    const hasMergeableLine = draftItems.some(
+      (line) => line.dishId === dish.id && line.dinerId === targetDinerId && line.notes === ''
+    );
+    if (!hasMergeableLine && draftItems.length >= MAX_ITEMS_PER_ORDER) {
       setFormError(`Máximo ${MAX_ITEMS_PER_ORDER} líneas de platillos por comanda.`);
       return;
     }
     setFormError(null);
     setDraftItems((prev) => {
       const existingIdx = prev.findIndex(
-        (line) => line.dishId === dish.id && line.dinerId === activeDinerId && line.notes === ''
+        (line) => line.dishId === dish.id && line.dinerId === targetDinerId && line.notes === ''
       );
       if (existingIdx >= 0) {
         return prev.map((line, idx) =>
           idx === existingIdx ? { ...line, qty: Math.min(99, line.qty + 1) } : line
         );
+      }
+      if (prev.length >= MAX_ITEMS_PER_ORDER) {
+        return prev;
       }
       const newLine: OrderLineItem = {
         lineId: `ln-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -236,7 +289,7 @@ export const WaiterView: React.FC = () => {
         station: dish.station,
         unitPrice: dish.price,
         qty: 1,
-        dinerId: activeDinerId,
+        dinerId: targetDinerId,
         notes: '',
       };
       return [...prev, newLine];
@@ -246,7 +299,9 @@ export const WaiterView: React.FC = () => {
   const handleChangeLineQty = (lineId: string, delta: number) => {
     setDraftItems((prev) =>
       prev
-        .map((line) => (line.lineId === lineId ? { ...line, qty: line.qty + delta } : line))
+        .map((line) =>
+          line.lineId === lineId ? { ...line, qty: Math.min(99, line.qty + delta) } : line
+        )
         .filter((line) => line.qty > 0)
     );
   };
@@ -262,13 +317,34 @@ export const WaiterView: React.FC = () => {
   const handleSubmitOrder = async () => {
     setFormError(null);
 
+    const editingOrder = editingOrderId
+      ? orders.find((o) => o.id === editingOrderId) || null
+      : null;
+
+    // When editing an existing order, allow keeping items already sent to kitchen even if later marked Agotado (86);
+    // only block newly added dishes or quantity increases on an Agotado dish.
+    const existingQtyByDish = new Map<string, number>();
+    if (editingOrder) {
+      for (const line of editingOrder.items) {
+        existingQtyByDish.set(line.dishId, (existingQtyByDish.get(line.dishId) || 0) + line.qty);
+      }
+    }
+    const draftQtyByDish = new Map<string, number>();
+    for (const line of draftItems) {
+      draftQtyByDish.set(line.dishId, (draftQtyByDish.get(line.dishId) || 0) + line.qty);
+    }
+
     const unavailableInDraft = draftItems.find((line) => {
       const catalogDish = menuItems.find((m) => m.id === line.dishId);
-      return catalogDish && !catalogDish.available;
+      if (!catalogDish || catalogDish.available) return false;
+      if (!editingOrder) return true;
+      const prevQty = existingQtyByDish.get(line.dishId) || 0;
+      const nextQty = draftQtyByDish.get(line.dishId) || 0;
+      return nextQty > prevQty;
     });
     if (unavailableInDraft) {
       setFormError(
-        `"${unavailableInDraft.name}" fue marcado como Agotado (86) por Administración. Quítalo antes de enviar.`
+        `"${unavailableInDraft.name}" fue marcado como Agotado (86) por Administración. Quítalo o reduce las unidades nuevas antes de enviar.`
       );
       return;
     }
@@ -278,15 +354,13 @@ export const WaiterView: React.FC = () => {
         setFormError('La comanda debe conservar al menos un platillo.');
         return;
       }
-      const editingOrder = orders.find((o) => o.id === editingOrderId);
       if (
         editingOrder &&
         editingOrder.status === 'preparing' &&
-        draftSubtotal < editingOrder.subtotal &&
-        currentStaff?.role !== 'admin'
+        draftSubtotal < editingOrder.subtotal
       ) {
         setFormError(
-          'Esta orden ya está en preparación; solo un Administrador puede reducir platillos o cancelar.'
+          'Esta orden ya está en preparación en cocina; puedes agregar platillos, pero no reducir el total. Si requieres cancelarla, solicítalo al Administrador.'
         );
         return;
       }
@@ -410,6 +484,7 @@ export const WaiterView: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-12 gap-2">
           {SERVICE_TYPES.map((slot) => {
             const active = activeOrdersByTable.get(slot);
+            const activeCount = activeCountBySlot.get(slot) || 0;
             const isSelected = serviceType === slot;
             const statusMeta = active ? ORDER_STATUS_META[active.status] : null;
             const isTable = TABLE_OPTIONS.includes(slot);
@@ -431,12 +506,36 @@ export const WaiterView: React.FC = () => {
                   {isTable ? slot : slot === 'Para Llevar' ? 'Llevar' : 'Domicilio'}
                 </div>
                 <div className={`text-[11px] mt-0.5 truncate ${statusMeta ? statusMeta.colorClass : 'text-stone-500'}`}>
-                  {statusMeta ? statusMeta.shortLabel : 'Libre'}
+                  {!isTable && activeCount > 1
+                    ? `${activeCount} activas`
+                    : statusMeta
+                      ? statusMeta.shortLabel
+                      : 'Libre'}
                 </div>
               </button>
             );
           })}
         </div>
+
+        {editableMultiSlotOrders.length > 0 && (
+          <div className="pt-2 border-t border-stone-800/80 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-stone-400">Editar orden activa Llevar/Domicilio:</span>
+            {editableMultiSlotOrders.map((ord) => (
+              <button
+                key={ord.id}
+                type="button"
+                onClick={() => loadOrderIntoEditor(ord)}
+                className={`px-2.5 py-1 rounded-md border text-[11px] font-medium cursor-pointer transition ${
+                  editingOrderId === ord.id
+                    ? 'bg-orange-600/20 border-orange-500 text-white'
+                    : 'bg-[#120f0d] border-stone-800 hover:border-stone-600 text-stone-300'
+                }`}
+              >
+                {ord.serviceType === 'Para Llevar' ? 'Llevar' : 'Domicilio'} · {ord.folio} ({formatMXN(ord.subtotal)})
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Main Split Workspace: Menu Catalog (Left) + Order Ticket Builder (Right) */}
@@ -588,6 +687,14 @@ export const WaiterView: React.FC = () => {
               </button>
             )}
           </div>
+
+          {editingOrderId && (
+            <div className="px-3 py-2 rounded-lg bg-stone-900/90 border border-stone-800 text-[11px] text-stone-400">
+              Para <strong className="text-stone-200">cancelar completamente</strong> este pedido,
+              solicítalo al <strong className="text-amber-400">Administrador</strong> (solo
+              Administración puede cancelar pedidos).
+            </div>
+          )}
 
           {/* Diners / Per-Person Accounts Bar */}
           <div className="space-y-2.5">

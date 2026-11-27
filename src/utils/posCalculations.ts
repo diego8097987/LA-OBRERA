@@ -22,6 +22,15 @@ export const MAX_COLONY_LENGTH = 100;
 export const MAX_REFERENCE_LENGTH = 200;
 export const MAX_MENU_NAME_LENGTH = 80;
 export const MAX_MENU_DESC_LENGTH = 180;
+export const MAX_CANCEL_REASON_LENGTH = 120;
+
+export const CANCELLATION_REASON_PRESETS = [
+  'Cliente canceló el pedido',
+  'Error de captura del mesero',
+  'Tiempo de espera prolongado',
+  'Platillo agotado en cocina',
+  'Pedido duplicado',
+] as const;
 
 export function roundMoney(amount: number): number {
   if (!Number.isFinite(amount)) return 0;
@@ -32,10 +41,11 @@ export function roundMoney(amount: number): number {
 
 export function formatMXN(amount: number): string {
   const safe = roundMoney(amount);
-  return `$${safe.toLocaleString('es-MX', {
+  const absFormatted = Math.abs(safe).toLocaleString('es-MX', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
+  return safe < 0 ? `-$${absFormatted}` : `$${absFormatted}`;
 }
 
 export function getLocalDateKey(date: Date = new Date()): string {
@@ -83,9 +93,11 @@ export function calculateDinerBreakdowns(
   const sharedDiners = diners.filter((d) => d.isShared);
   const personalDiners = diners.filter((d) => !d.isShared);
 
-  const sharedTotal = items
-    .filter((item) => sharedDiners.some((sd) => sd.id === item.dinerId))
-    .reduce((acc, item) => acc + item.unitPrice * item.qty, 0);
+  const sharedTotal = roundMoney(
+    items
+      .filter((item) => sharedDiners.some((sd) => sd.id === item.dinerId))
+      .reduce((acc, item) => acc + item.unitPrice * item.qty, 0)
+  );
 
   const baseShare =
     splitSharedEqually && personalDiners.length > 0 && sharedTotal > 0
@@ -290,6 +302,47 @@ export function canTransitionOrderStatus(
     return (fromStatus === 'ready' || fromStatus === 'served') && toStatus === 'paid';
   }
   return false;
+}
+
+/**
+ * Strictly enforces that ONLY the Administrator can cancel active unpaid orders
+ * placed by customers through waiters. Waiters, Kitchen, and Cashiers can never cancel.
+ */
+export function canCancelOrder(
+  role: ActiveWorkspaceRole | 'pending' | null | undefined,
+  status: OrderStatus
+): boolean {
+  if (role !== 'admin') return false;
+  return status !== 'paid' && status !== 'cancelled';
+}
+
+export function validateCancellationReason(rawReason: string): {
+  valid: boolean;
+  reason: string;
+  error?: string;
+} {
+  const clean = sanitizeText(rawReason, MAX_CANCEL_REASON_LENGTH);
+  if (clean.length < 3) {
+    return {
+      valid: false,
+      reason: clean,
+      error: 'Indica un motivo de cancelación (mínimo 3 caracteres) para la bitácora.',
+    };
+  }
+  return { valid: true, reason: clean };
+}
+
+export function buildCancellationAuditSummary(params: {
+  adminName: string;
+  folio: string;
+  serviceType: ServiceType;
+  waiterName: string;
+  total: number;
+  reason: string;
+}): string {
+  const cleanReason = sanitizeText(params.reason, 80) || 'Cancelado por Administrador';
+  const raw = `Cancelado por Admin (${params.adminName}): ${params.folio} · ${params.serviceType} · Mesero: ${params.waiterName} (${formatMXN(params.total)}) · Motivo: ${cleanReason}`;
+  return sanitizeText(raw, 200);
 }
 
 const VALID_MENU_CATEGORIES: MenuCategoryId[] = [
@@ -572,6 +625,8 @@ export function buildPlainTextReceipt(order: Order, dinerId?: string): string {
       if (order.paymentMethod === 'efectivo') {
         lines.push(`Cambio:         ${formatMXN(order.changeGiven)}`);
       }
+    } else if (order.status === 'cancelled') {
+      lines.push(`Estado:         CANCELADO POR ADMINISTRADOR`);
     } else {
       lines.push(`Estado:         PRE-CUENTA (${order.status.toUpperCase()})`);
     }
@@ -602,9 +657,20 @@ export function validateNewOrderInput(params: {
     return `Agrega entre 1 y ${MAX_ITEMS_PER_ORDER} platillos para enviar a cocina.`;
   }
   for (const item of params.items) {
-    if (item.qty < 1 || item.qty > 99 || item.unitPrice <= 0) {
+    if (
+      !Number.isInteger(item.qty) ||
+      item.qty < 1 ||
+      item.qty > 99 ||
+      !Number.isFinite(item.unitPrice) ||
+      item.unitPrice < 1 ||
+      item.unitPrice > 50000
+    ) {
       return 'Se detectó una cantidad o precio inválido en un platillo.';
     }
+  }
+  const subtotal = calculateItemsSubtotal(params.items);
+  if (subtotal < 1 || subtotal > 250000) {
+    return 'El subtotal de la orden debe estar entre $1 y $250,000 MXN.';
   }
   if (params.serviceType === 'Servicio a Domicilio') {
     if (params.customerName.trim().length < 2) {

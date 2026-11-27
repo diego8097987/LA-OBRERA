@@ -1,18 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildCancellationAuditSummary,
   buildDailyReportCsv,
   buildPlainTextReceipt,
   calculateCashCutReconciliation,
   calculateCheckoutPayment,
   calculateDinerBreakdowns,
   calculateItemsSubtotal,
+  canCancelOrder,
   canTransitionOrderStatus,
   computeDailySalesSummary,
   escapeCsvCell,
+  formatMXN,
   getKitchenUrgency,
   isValidFirestoreId,
   roundMoney,
+  validateCancellationReason,
   validateNewMenuItemInput,
   validateNewOrderInput,
 } from './posCalculations';
@@ -418,4 +422,74 @@ test('roundMoney rounds symmetrically for negative numbers and avoids negative z
   assert.equal(roundMoney(-12.345), -12.35);
   assert.equal(Object.is(roundMoney(-0.001), 0), true);
   assert.equal(Object.is(roundMoney(-0), 0), true);
+});
+
+test('formatMXN places minus sign before currency symbol for negative values', () => {
+  assert.equal(formatMXN(50), '$50.00');
+  assert.equal(formatMXN(-50), '-$50.00');
+  assert.equal(formatMXN(-0.001), '$0.00');
+});
+
+test('validateNewOrderInput enforces Firestore upper bounds and integer quantities', () => {
+  const nonIntQty = validateNewOrderInput({
+    serviceType: 'Mesa 1',
+    diners: [sampleDiners[0]],
+    items: [{ ...sampleItems[0], qty: 1.5 }],
+    customerName: '',
+    phone: '',
+    street: '',
+    colony: '',
+    reference: '',
+  });
+  assert.ok(nonIntQty !== null);
+
+  const hugeSubtotal = validateNewOrderInput({
+    serviceType: 'Mesa 1',
+    diners: [sampleDiners[0]],
+    items: [{ ...sampleItems[0], unitPrice: 10000, qty: 30 }],
+    customerName: '',
+    phone: '',
+    street: '',
+    colony: '',
+    reference: '',
+  });
+  assert.ok(hugeSubtotal !== null);
+});
+
+test('canCancelOrder strictly allows ONLY Admin to cancel unpaid active waiter orders', () => {
+  // Admin CAN cancel any active unpaid order placed through waiters
+  assert.equal(canCancelOrder('admin', 'pending'), true);
+  assert.equal(canCancelOrder('admin', 'preparing'), true);
+  assert.equal(canCancelOrder('admin', 'ready'), true);
+  assert.equal(canCancelOrder('admin', 'served'), true);
+  // Admin CANNOT cancel already paid or already cancelled orders
+  assert.equal(canCancelOrder('admin', 'paid'), false);
+  assert.equal(canCancelOrder('admin', 'cancelled'), false);
+
+  // Mesero, Cocina, Cajero, pending, and null can NEVER cancel any order
+  for (const role of ['mesero', 'cocina', 'cajero', 'pending', null, undefined] as const) {
+    for (const status of ['pending', 'preparing', 'ready', 'served', 'paid', 'cancelled'] as const) {
+      assert.equal(canCancelOrder(role, status), false);
+    }
+  }
+});
+
+test('validateCancellationReason and buildCancellationAuditSummary enforce audit bounds', () => {
+  assert.equal(validateCancellationReason('  ').valid, false);
+  assert.equal(validateCancellationReason('no').valid, false);
+  const ok = validateCancellationReason('Cliente canceló el pedido');
+  assert.equal(ok.valid, true);
+  assert.equal(ok.reason, 'Cliente canceló el pedido');
+
+  const summary = buildCancellationAuditSummary({
+    adminName: 'Admin General',
+    folio: 'OBR-554433',
+    serviceType: 'Mesa 4',
+    waiterName: 'Carlos Mesero',
+    total: 780,
+    reason: 'Cliente canceló el pedido porque cambió de mesa y pidió otra cosa muy larga '.repeat(4),
+  });
+  assert.ok(summary.length >= 3 && summary.length <= 200);
+  assert.ok(summary.includes('OBR-554433'));
+  assert.ok(summary.includes('Carlos Mesero'));
 });

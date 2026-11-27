@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Copy, Download, FileDown, Printer, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Ban, Check, Copy, Download, FileDown, Printer, X } from 'lucide-react';
 import type { Order, OrderPrivateCustomer } from '../types/pos';
 import { downloadOrderTicketPdf } from '../utils/pdfExport';
 import {
@@ -12,12 +12,14 @@ interface TicketModalProps {
   order: Order;
   onClose: () => void;
   onLoadPrivateCustomer?: (orderId: string) => Promise<OrderPrivateCustomer | null>;
+  onRequestCancel?: (order: Order) => void;
 }
 
 export const TicketModal: React.FC<TicketModalProps> = ({
   order,
   onClose,
   onLoadPrivateCustomer,
+  onRequestCancel,
 }) => {
   const [selectedDinerId, setSelectedDinerId] = useState<string>('all');
   const [privateCustomer, setPrivateCustomer] = useState<OrderPrivateCustomer | null>(
@@ -88,14 +90,24 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   });
 
   const [pdfDownloaded, setPdfDownloaded] = useState(false);
+  const pdfTimerRef = useRef<number | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
 
-  const handleDownloadPdf = () => {
-    downloadOrderTicketPdf(
+  useEffect(() => {
+    return () => {
+      if (pdfTimerRef.current) window.clearTimeout(pdfTimerRef.current);
+      if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const handleDownloadPdf = async () => {
+    await downloadOrderTicketPdf(
       enrichedOrder,
       selectedDinerId === 'all' ? undefined : selectedDinerId
     );
     setPdfDownloaded(true);
-    window.setTimeout(() => setPdfDownloaded(false), 2400);
+    if (pdfTimerRef.current) window.clearTimeout(pdfTimerRef.current);
+    pdfTimerRef.current = window.setTimeout(() => setPdfDownloaded(false), 2400);
   };
 
   const handleDownloadTxt = () => {
@@ -117,7 +129,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     try {
       await navigator.clipboard.writeText(plainText);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = window.setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback ignored if clipboard unavailable
     }
@@ -125,12 +138,12 @@ export const TicketModal: React.FC<TicketModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      className="print-modal-root fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="ticket-modal-heading"
     >
-      <div className="bg-[#181412] border border-stone-800 rounded-xl max-w-xl w-full flex flex-col max-h-[92vh] overflow-hidden shadow-2xl">
+      <div className="print-modal-shell bg-[#181412] border border-stone-800 rounded-xl max-w-xl w-full flex flex-col max-h-[92vh] overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="px-5 py-4 border-b border-stone-800 flex items-center justify-between gap-4">
           <div>
@@ -138,7 +151,12 @@ export const TicketModal: React.FC<TicketModalProps> = ({
               Ticket de Compra · {order.folio}
             </h2>
             <p className="text-xs text-stone-400">
-              {order.serviceType} · {order.status === 'paid' ? 'Pagado' : 'Pre-cuenta'}
+              {order.serviceType} ·{' '}
+              {order.status === 'paid'
+                ? 'Pagado'
+                : order.status === 'cancelled'
+                  ? 'Cancelado por Administrador'
+                  : 'Pre-cuenta'}
             </p>
           </div>
           <button
@@ -235,6 +253,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                   <div key={item.lineId} className="flex justify-between gap-2">
                     <span>
                       {item.qty}x {item.name}
+                      {item.notes ? ` (${item.notes})` : ''}
                     </span>
                     <span className="shrink-0 font-semibold">
                       {formatMXN(item.unitPrice * item.qty)}
@@ -328,11 +347,31 @@ export const TicketModal: React.FC<TicketModalProps> = ({
           </div>
         </div>
 
+        {/* Admin-only direct cancellation option when inspecting an active unpaid waiter order */}
+        {onRequestCancel && order.status !== 'paid' && order.status !== 'cancelled' && (
+          <div className="px-5 py-2.5 border-t border-red-900/50 bg-red-950/25 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-red-200/90">
+              Cancelación exclusiva de Administrador (retira el pedido de cocina, caja y mesero)
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onRequestCancel(order);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition"
+            >
+              <Ban className="w-3.5 h-3.5 shrink-0" />
+              <span>Cancelar Pedido</span>
+            </button>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="px-5 py-4 border-t border-stone-800 bg-[#181412] grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             type="button"
-            onClick={handleDownloadPdf}
+            onClick={() => void handleDownloadPdf()}
             className="px-3 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer transition"
           >
             {pdfDownloaded ? (

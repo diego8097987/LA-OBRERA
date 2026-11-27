@@ -63,9 +63,11 @@ import type {
   StaffRole,
 } from '../types/pos';
 import {
+  buildCancellationAuditSummary,
   calculateCashCutReconciliation,
   calculateCheckoutPayment,
   calculateItemsSubtotal,
+  canCancelOrder,
   canTransitionOrderStatus,
   computeDailySalesSummary,
   generateOrderFolio,
@@ -82,6 +84,7 @@ import {
   MAX_STREET_LENGTH,
   roundMoney,
   sanitizeText,
+  validateCancellationReason,
   validateNewMenuItemInput,
 } from '../utils/posCalculations';
 
@@ -170,6 +173,7 @@ interface PosContextValue {
   createOrder: (payload: CreateOrderPayload) => Promise<Order>;
   appendItemsToOrder: (payload: AppendOrderPayload) => Promise<void>;
   updateOrderStatus: (orderId: string, nextStatus: OrderStatus) => Promise<void>;
+  cancelOrder: (orderId: string, reason: string) => Promise<{ ok: boolean; message: string }>;
   processOrderPayment: (payload: ProcessPaymentPayload) => Promise<Order>;
   loadOrderPrivateCustomer: (orderId: string) => Promise<OrderPrivateCustomer | null>;
   addMenuItem: (payload: CreateMenuItemPayload) => Promise<{ ok: boolean; message: string }>;
@@ -224,6 +228,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toast, setToast] = useState<ToastNotice | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const activeListenersRef = useRef<Set<() => void>>(new Set());
+  const hadStaffDocRef = useRef<boolean>(false);
 
   const registerListener = useCallback((unsub: () => void) => {
     activeListenersRef.current.add(unsub);
@@ -413,6 +418,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Firebase Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      hadStaffDocRef.current = false;
       setFirebaseUser(user);
       setAuthError(null);
 
@@ -447,21 +453,31 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Live self-staff listener (runs even while 'pending' so Admin approval unlocks workspace in real time)
   useEffect(() => {
-    if (!firebaseUser || !firebaseUser.emailVerified) {
+    if (!firebaseUser || needsEmailVerification || !firebaseUser.emailVerified) {
       return;
     }
+
+    const isBootstrap =
+      (firebaseUser.email || '').toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
 
     const cleanupSelf = registerListener(
       onSnapshot(
         doc(db, 'staff', firebaseUser.uid),
         (snap) => {
           if (!snap.exists()) {
-            setCurrentStaff((prev) => (prev && prev.role === 'pending' ? null : prev));
+            if (hadStaffDocRef.current && !isBootstrap) {
+              hadStaffDocRef.current = false;
+              unsubscribeAllListeners();
+              void signOut(auth).catch(() => undefined);
+              setCurrentStaff(null);
+              setAuthError(
+                'Tu solicitud de acceso fue rechazada o tu perfil fue eliminado por el Administrador.'
+              );
+            }
             return;
           }
+          hadStaffDocRef.current = true;
           const d = snap.data();
-          const isBootstrap =
-            (firebaseUser.email || '').toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
           const nextRole = (isBootstrap ? 'admin' : d.role) as StaffRole;
           const nextActive = isBootstrap ? true : Boolean(d.active);
           setCurrentStaff((prev) => ({
@@ -488,7 +504,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       cleanupSelf();
     };
-  }, [firebaseUser, registerListener, notify]);
+  }, [firebaseUser, needsEmailVerification, registerListener, unsubscribeAllListeners, notify]);
 
   // Real-time operational Firestore listeners (ONLY when signed in & active staff)
   useEffect(() => {
@@ -605,6 +621,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     // 4. Daily reports, Staff Directory & Audit Logs (Admin ONLY)
+    let isEffectActive = true;
+    let staffSnapshotSeq = 0;
+
     if (currentStaff.role === 'admin') {
       const reportsQ = query(collection(db, 'daily_reports'), orderBy('dateKey', 'desc'), limit(31));
       unsubscribers.push(
@@ -644,6 +663,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           onSnapshot(
             collection(db, 'staff'),
             async (snapshot) => {
+              const currentSeq = ++staffSnapshotSeq;
               const profiles: StaffProfile[] = snapshot.docs.map((docSnap) => {
                 const d = docSnap.data();
                 return {
@@ -669,6 +689,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   return p;
                 })
               );
+              if (!isEffectActive || currentSeq !== staffSnapshotSeq || !auth.currentUser) {
+                return;
+              }
               setStaffList(enriched);
             },
             onListenerError(OperationType.LIST, 'staff')
@@ -704,6 +727,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return () => {
+      isEffectActive = false;
       unsubscribers.forEach((u) => u());
     };
   }, [firebaseUser, currentStaff?.uid, currentStaff?.role, currentStaff?.active, registerListener, notify]);
@@ -904,6 +928,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (sanitizedItems.length === 0 || subtotal < 1) {
         throw new Error('Agrega al menos un platillo válido antes de enviar la comanda.');
       }
+      if (subtotal > 250000) {
+        throw new Error('El subtotal máximo permitido por orden es de $250,000 MXN.');
+      }
 
       const orderId = makeDocId('ord');
       const folio = generateOrderFolio();
@@ -1050,6 +1077,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (sanitizedItems.length === 0 || subtotal < 1) {
         throw new Error('La comanda debe conservar al menos un platillo válido.');
       }
+      if (subtotal > 250000) {
+        throw new Error('El subtotal máximo permitido por orden es de $250,000 MXN.');
+      }
       if (target.status === 'preparing' && subtotal < target.subtotal) {
         throw new Error(
           'Esta orden ya está en preparación en cocina; solo puedes agregar platillos, no reducirlos.'
@@ -1086,9 +1116,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateOrderStatus = useCallback(
     async (orderId: string, nextStatus: OrderStatus): Promise<void> => {
       const target = orders.find((o) => o.id === orderId);
-      if (!target || !currentStaff || currentStaff.role === 'pending') return;
+      if (!target || !currentStaff || !currentStaff.active || currentStaff.role === 'pending') return;
 
       const effectiveRole: ActiveWorkspaceRole = currentStaff.role;
+
+      if (nextStatus === 'cancelled' && !canCancelOrder(effectiveRole, target.status)) {
+        notify('Solo el Administrador puede cancelar pedidos activos.', 'error');
+        return;
+      }
 
       if (!canTransitionOrderStatus(effectiveRole, target.status, nextStatus)) {
         notify('Transición de estado no permitida para tu perfil.', 'error');
@@ -1118,6 +1153,66 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           extractFriendlyErrorMessage(err, 'No se pudo actualizar el estado de la orden.'),
           'error'
         );
+      }
+    },
+    [orders, currentStaff, notify, writeAuditLog]
+  );
+
+  const cancelOrder = useCallback(
+    async (orderId: string, reason: string): Promise<{ ok: boolean; message: string }> => {
+      if (!currentStaff || !currentStaff.active || currentStaff.role !== 'admin') {
+        const msg = 'Solo el Administrador puede cancelar pedidos tomados por meseros.';
+        notify(msg, 'error');
+        return { ok: false, message: msg };
+      }
+
+      const target = orders.find((o) => o.id === orderId);
+      if (!target) {
+        return { ok: false, message: 'No se encontró el pedido seleccionado.' };
+      }
+
+      if (!canCancelOrder(currentStaff.role, target.status)) {
+        const msg =
+          target.status === 'paid'
+            ? 'No se puede cancelar un pedido que ya fue cobrado en caja.'
+            : 'Este pedido ya fue cancelado previamente.';
+        return { ok: false, message: msg };
+      }
+
+      const reasonCheck = validateCancellationReason(reason);
+      if (!reasonCheck.valid) {
+        return {
+          ok: false,
+          message: reasonCheck.error || 'Ingresa un motivo válido de cancelación.',
+        };
+      }
+
+      const adminName = safePersonName(currentStaff.displayName, 'Administrador');
+      const path = `orders/${orderId}`;
+      try {
+        await updateDoc(doc(db, 'orders', orderId), {
+          status: 'cancelled',
+          updatedAt: serverTimestamp(),
+        });
+
+        const auditSummary = buildCancellationAuditSummary({
+          adminName,
+          folio: target.folio,
+          serviceType: target.serviceType,
+          waiterName: target.waiterName,
+          total: target.total,
+          reason: reasonCheck.reason,
+        });
+        await writeAuditLog('ORDER_CANCELLED', orderId, auditSummary);
+
+        const successMsg = `Pedido ${target.folio} (${target.serviceType} · Mesero: ${target.waiterName}) cancelado por Administrador.`;
+        notify(successMsg, 'success');
+        return { ok: true, message: successMsg };
+      } catch (err) {
+        logFirestoreError(err, OperationType.UPDATE, path);
+        const errMsg = extractFriendlyErrorMessage(err, 'No se pudo cancelar el pedido.');
+        notify(errMsg, 'error');
+        return { ok: false, message: errMsg };
       }
     },
     [orders, currentStaff, notify, writeAuditLog]
@@ -1653,46 +1748,90 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [currentStaff, cashRegister, orders, notify, writeAuditLog]
   );
 
-  const value: PosContextValue = {
-    authReady,
-    firebaseUser,
-    needsEmailVerification,
-    currentStaff,
-    activeWorkspace,
-    canAccessWorkspace,
-    signInWithEmail,
-    registerWithEmail,
-    sendPasswordReset,
-    resendVerificationEmail,
-    reloadEmailVerification,
-    signInWithGoogle,
-    exitSession,
-    authError,
-    clearAuthError,
-    loadingData,
-    orders,
-    menuItems,
-    staffList,
-    cashRegister,
-    dailyReports,
-    auditLogs,
-    createOrder,
-    appendItemsToOrder,
-    updateOrderStatus,
-    processOrderPayment,
-    loadOrderPrivateCustomer,
-    addMenuItem,
-    deleteMenuItem,
-    toggleMenuAvailability,
-    updateMenuPrice,
-    createStaffAccount,
-    updateStaffRole,
-    deletePendingStaff,
-    openCashRegister,
-    closeCashRegisterAndSaveCut,
-    toast,
-    notify,
-  };
+  const value = useMemo<PosContextValue>(
+    () => ({
+      authReady,
+      firebaseUser,
+      needsEmailVerification,
+      currentStaff,
+      activeWorkspace,
+      canAccessWorkspace,
+      signInWithEmail,
+      registerWithEmail,
+      sendPasswordReset,
+      resendVerificationEmail,
+      reloadEmailVerification,
+      signInWithGoogle,
+      exitSession,
+      authError,
+      clearAuthError,
+      loadingData,
+      orders,
+      menuItems,
+      staffList,
+      cashRegister,
+      dailyReports,
+      auditLogs,
+      createOrder,
+      appendItemsToOrder,
+      updateOrderStatus,
+      cancelOrder,
+      processOrderPayment,
+      loadOrderPrivateCustomer,
+      addMenuItem,
+      deleteMenuItem,
+      toggleMenuAvailability,
+      updateMenuPrice,
+      createStaffAccount,
+      updateStaffRole,
+      deletePendingStaff,
+      openCashRegister,
+      closeCashRegisterAndSaveCut,
+      toast,
+      notify,
+    }),
+    [
+      authReady,
+      firebaseUser,
+      needsEmailVerification,
+      currentStaff,
+      activeWorkspace,
+      canAccessWorkspace,
+      signInWithEmail,
+      registerWithEmail,
+      sendPasswordReset,
+      resendVerificationEmail,
+      reloadEmailVerification,
+      signInWithGoogle,
+      exitSession,
+      authError,
+      clearAuthError,
+      loadingData,
+      orders,
+      menuItems,
+      staffList,
+      cashRegister,
+      dailyReports,
+      auditLogs,
+      createOrder,
+      appendItemsToOrder,
+      updateOrderStatus,
+      cancelOrder,
+      processOrderPayment,
+      loadOrderPrivateCustomer,
+      addMenuItem,
+      deleteMenuItem,
+      toggleMenuAvailability,
+      updateMenuPrice,
+      createStaffAccount,
+      updateStaffRole,
+      deletePendingStaff,
+      openCashRegister,
+      closeCashRegisterAndSaveCut,
+      toast,
+      notify,
+    ]
+  );
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 };

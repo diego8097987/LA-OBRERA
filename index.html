@@ -15,15 +15,80 @@
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Non-render-blocking Google Fonts so the desktop window paints immediately even on slow/offline Wi-Fi -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Dancing+Script:wght@700&family=JetBrains+Mono:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Dancing+Script:wght@700&family=JetBrains+Mono:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background-color: #0e0c0b;
+        color: #f5efe6;
+      }
+      #obrera-boot-splash {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      #obrera-boot-splash .brand {
+        font-family: Georgia, serif;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        color: #ffffff;
+      }
+      #obrera-boot-splash .sub {
+        font-size: 12px;
+        color: #a8a29e;
+      }
+      #obrera-boot-splash .bar {
+        width: 140px;
+        height: 3px;
+        border-radius: 999px;
+        background: #292524;
+        overflow: hidden;
+      }
+      #obrera-boot-splash .bar > div {
+        width: 45%;
+        height: 100%;
+        background: #ea580c;
+        border-radius: 999px;
+        animation: obreraPulse 0.9s ease-in-out infinite alternate;
+      }
+      @keyframes obreraPulse {
+        from {
+          transform: translateX(-20%);
+        }
+        to {
+          transform: translateX(135%);
+        }
+      }
+    </style>
   </head>
   <body class="bg-[#0e0c0b] text-[#f5efe6] antialiased selection:bg-orange-600 selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div id="obrera-boot-splash">
+        <div class="brand">LA OBRERA</div>
+        <div class="bar"><div></div></div>
+        <div class="sub">Iniciando sistema POS...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

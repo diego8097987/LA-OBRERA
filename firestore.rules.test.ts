@@ -94,3 +94,16 @@ test('Admin-only Menu Item creation & price/description editing validated in rul
   assert.ok(menuBlock.includes("'desc'"));
   assert.ok(menuBlock.includes("'price'"));
 });
+
+test('Order cancellation is strictly restricted to Admin only in firestore.rules', () => {
+  const cancelMatches = rulesContent.match(/incoming\(\)\.status\s*==\s*'cancelled'/g) || [];
+  assert.equal(cancelMatches.length, 1);
+  const tier1Idx = rulesContent.indexOf('Tier 1 (Admin)');
+  assert.ok(tier1Idx > 0);
+  const tier1Block = rulesContent.slice(tier1Idx, tier1Idx + 360);
+  assert.ok(tier1Block.includes('isAdmin()'));
+  assert.ok(tier1Block.includes("incoming().status == 'cancelled'"));
+  assert.ok(!tier1Block.includes('isStrictWaiter()'));
+  assert.ok(!tier1Block.includes('isStrictKitchen()'));
+  assert.ok(!tier1Block.includes('isStrictCashier()'));
+});

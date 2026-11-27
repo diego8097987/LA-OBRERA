@@ -34,7 +34,7 @@ export const KitchenView: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
-  const prevPendingCountRef = useRef<number>(0);
+  const seenPendingIdsRef = useRef<Set<string> | null>(null);
 
   const handleAdvanceOrder = async (orderId: string, nextStatus: 'preparing' | 'ready') => {
     if (busyOrderId === orderId) return;
@@ -77,13 +77,25 @@ export const KitchenView: React.FC = () => {
     [kitchenOrders]
   );
 
-  // Play gentle alert when a new pending order arrives
+  // Play gentle alert ONLY when a genuinely new pending order arrives (not on initial load or station filter toggle)
   useEffect(() => {
-    if (soundEnabled && pendingOrders.length > prevPendingCountRef.current) {
+    const currentPendingIds = orders.filter((o) => o.status === 'pending').map((o) => o.id);
+    if (seenPendingIdsRef.current === null) {
+      seenPendingIdsRef.current = new Set(currentPendingIds);
+      return;
+    }
+    let hasNewPending = false;
+    for (const id of currentPendingIds) {
+      if (!seenPendingIdsRef.current.has(id)) {
+        hasNewPending = true;
+        break;
+      }
+    }
+    seenPendingIdsRef.current = new Set(currentPendingIds);
+    if (soundEnabled && hasNewPending) {
       playKitchenChime();
     }
-    prevPendingCountRef.current = pendingOrders.length;
-  }, [pendingOrders.length, soundEnabled]);
+  }, [orders, soundEnabled]);
 
   const renderTicketCard = (order: Order) => {
     const urgency = getKitchenUrgency(order.createdAtMs, nowMs);

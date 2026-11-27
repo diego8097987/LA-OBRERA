@@ -14,11 +14,13 @@ import {
 } from 'lucide-react';
 import { usePos } from '../context/PosContext';
 import { BrandLogo } from './BrandLogo';
+import { DesktopUpdateControls } from './UpdateBanner';
 
 const PORTAL_LOGO_VIDEO_SRC = '/assets/aistudio/gemini_generated_video_7d3748c9_32df92bf.mp4';
 
 const PortalVideoLogo: React.FC<{ className?: string }> = ({ className = 'w-28 h-28' }) => {
   const [videoError, setVideoError] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
 
   if (videoError) {
     return <BrandLogo className={className} />;
@@ -28,17 +30,26 @@ const PortalVideoLogo: React.FC<{ className?: string }> = ({ className = 'w-28 h
     <div
       className={`${className} relative rounded-full overflow-hidden bg-[#0e0c0b] border border-amber-500/35 shadow-lg shadow-orange-950/60 shrink-0`}
     >
+      {/* Instant lightweight SVG logo renders at 0 ms while the MP4 decodes asynchronously */}
+      {!videoReady && (
+        <div className="absolute inset-0">
+          <BrandLogo className="w-full h-full" />
+        </div>
+      )}
       <video
         src={PORTAL_LOGO_VIDEO_SRC}
         autoPlay
         loop
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         disablePictureInPicture
         aria-label="Logotipo animado LA OBRERA Grill Asadero"
+        onCanPlay={() => setVideoReady(true)}
         onError={() => setVideoError(true)}
-        className="w-full h-full object-cover object-center pointer-events-none select-none"
+        className={`w-full h-full object-cover object-center pointer-events-none select-none transition-opacity duration-300 ${
+          videoReady ? 'opacity-100' : 'opacity-0'
+        }`}
       />
     </div>
   );
@@ -284,7 +295,7 @@ export const AuthGate: React.FC = () => {
   const visibleError = localError || authError;
 
   return (
-    <div className="min-h-screen bg-[#0e0c0b] text-[#f5efe6] flex items-center justify-center p-4 sm:p-6">
+    <div className="flex-1 min-h-full bg-[#0e0c0b] text-[#f5efe6] flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-md w-full border border-stone-800 rounded-2xl overflow-hidden bg-[#161210] shadow-2xl">
         {/* Animated Video Brand Header */}
         <div className="px-7 pt-7 pb-5 flex flex-col items-center justify-center gap-3 text-center bg-[#120f0d] border-b border-stone-800">
@@ -587,6 +598,10 @@ export const AuthGate: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
             <span>Entrar con Google</span>
           </button>
+
+          <div className="pt-1 flex justify-center">
+            <DesktopUpdateControls variant="login" />
+          </div>
         </div>
       </div>
     </div>

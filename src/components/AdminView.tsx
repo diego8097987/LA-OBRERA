@@ -25,6 +25,7 @@ import {
 import { usePos } from '../context/PosContext';
 import { MENU_CATEGORIES } from '../data/menuCatalog';
 import { extractFriendlyErrorMessage } from '../firebase';
+import { useTodayDateKey } from '../hooks/useTodayDateKey';
 import type {
   ActiveWorkspaceRole,
   KitchenStation,
@@ -37,9 +38,12 @@ import { downloadCashCutPdf, downloadDailySalesReportPdf } from '../utils/pdfExp
 import {
   buildDailyReportCsv,
   calculateCashCutReconciliation,
+  canCancelOrder,
+  CANCELLATION_REASON_PRESETS,
   computeDailySalesSummary,
   formatMXN,
   getLocalDateKey,
+  MAX_CANCEL_REASON_LENGTH,
   MAX_MENU_DESC_LENGTH,
   MAX_MENU_NAME_LENGTH,
   ORDER_STATUS_META,
@@ -57,7 +61,7 @@ export const AdminView: React.FC = () => {
     cashRegister,
     dailyReports,
     auditLogs,
-    updateOrderStatus,
+    cancelOrder,
     loadOrderPrivateCustomer,
     addMenuItem,
     deleteMenuItem,
@@ -78,7 +82,10 @@ export const AdminView: React.FC = () => {
   const [orderSearch, setOrderSearch] = useState<string>('');
   const [menuSearch, setMenuSearch] = useState<string>('');
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
-  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>(CANCELLATION_REASON_PRESETS[0]);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState<boolean>(false);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const [ticketOrder, setTicketOrder] = useState<Order | null>(null);
 
@@ -149,6 +156,25 @@ export const AdminView: React.FC = () => {
     });
   }, [orders, selectedDateKey, statusFilter, orderSearch]);
 
+  // All active unpaid waiter orders across all dates so Admin can always cancel any live order immediately
+  const activeWaiterOrders = useMemo(
+    () =>
+      orders
+        .filter((o) => canCancelOrder('admin', o.status))
+        .sort((a, b) => b.createdAtMs - a.createdAtMs),
+    [orders]
+  );
+
+  const cancellationNoteByOrderId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const log of auditLogs) {
+      if (log.action === 'ORDER_CANCELLED' && !map.has(log.targetId)) {
+        map.set(log.targetId, log.summary);
+      }
+    }
+    return map;
+  }, [auditLogs]);
+
   const filteredMenu = useMemo(() => {
     const q = menuSearch.trim().toLowerCase();
     return menuItems.filter(
@@ -161,15 +187,19 @@ export const AdminView: React.FC = () => {
     [summary.categoryTotals]
   );
 
-  const todayKey = getLocalDateKey();
-  const todaySummary = useMemo(
-    () => computeDailySalesSummary(orders, todayKey),
-    [orders, todayKey]
+  const todayKey = useTodayDateKey();
+  const isRegisterOpen = Boolean(cashRegister?.isOpen);
+  // Keep cash cut aligned to the date the register was opened (handles shifts closing past midnight)
+  const activeRegisterDateKey =
+    isRegisterOpen && cashRegister?.dateKey ? cashRegister.dateKey : todayKey;
+
+  const registerShiftSummary = useMemo(
+    () => computeDailySalesSummary(orders, activeRegisterDateKey),
+    [orders, activeRegisterDateKey]
   );
 
-  const isRegisterOpen = Boolean(cashRegister?.isOpen);
   const activeOpeningCash = cashRegister?.openingCash ?? 0;
-  const expectedCashNow = roundMoney(activeOpeningCash + todaySummary.cashTotal);
+  const expectedCashNow = roundMoney(activeOpeningCash + registerShiftSummary.cashTotal);
 
   const numericCountedCash = useMemo(() => {
     const parsed = Number.parseFloat(countedCashInput);
@@ -180,24 +210,47 @@ export const AdminView: React.FC = () => {
     () =>
       calculateCashCutReconciliation({
         openingCash: activeOpeningCash,
-        cashSales: todaySummary.cashTotal,
+        cashSales: registerShiftSummary.cashTotal,
         countedCash: numericCountedCash,
       }),
-    [activeOpeningCash, todaySummary.cashTotal, numericCountedCash]
+    [activeOpeningCash, registerShiftSummary.cashTotal, numericCountedCash]
   );
 
   const todaySavedCut = useMemo(
-    () => dailyReports.find((r) => r.dateKey === todayKey) || null,
-    [dailyReports, todayKey]
+    () => dailyReports.find((r) => r.dateKey === activeRegisterDateKey) || null,
+    [dailyReports, activeRegisterDateKey]
   );
 
-  const handleDownloadSalesReportPdf = () => {
-    const filename = downloadDailySalesReportPdf({
+  const handleDownloadSalesReportPdf = async () => {
+    const filename = await downloadDailySalesReportPdf({
       orders,
       dateKey: selectedDateKey,
       generatedByName: currentStaff?.displayName || 'Administrador',
     });
     notify(`Reporte Diario de Ventas PDF descargado (${filename}).`, 'success');
+  };
+
+  const handleOpenCancelModal = (order: Order) => {
+    setCancelModalOrder(order);
+    setCancelReason(CANCELLATION_REASON_PRESETS[0]);
+    setCancelError(null);
+  };
+
+  const handleConfirmCancelOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancelModalOrder) return;
+    setCancelError(null);
+    setCancellingOrder(true);
+    try {
+      const res = await cancelOrder(cancelModalOrder.id, cancelReason);
+      if (res.ok) {
+        setCancelModalOrder(null);
+      } else {
+        setCancelError(res.message);
+      }
+    } finally {
+      setCancellingOrder(false);
+    }
   };
 
   const handleDownloadCsv = () => {
@@ -214,7 +267,7 @@ export const AdminView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!showOpenRegisterModal && !showCloseRegisterModal) return;
+    if (!showOpenRegisterModal && !showCloseRegisterModal && !cancelModalOrder) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (showOpenRegisterModal && !openingRegister) {
@@ -223,10 +276,20 @@ export const AdminView: React.FC = () => {
       if (showCloseRegisterModal && !closingRegister) {
         setShowCloseRegisterModal(false);
       }
+      if (cancelModalOrder && !cancellingOrder) {
+        setCancelModalOrder(null);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showOpenRegisterModal, showCloseRegisterModal, openingRegister, closingRegister]);
+  }, [
+    showOpenRegisterModal,
+    showCloseRegisterModal,
+    cancelModalOrder,
+    openingRegister,
+    closingRegister,
+    cancellingOrder,
+  ]);
 
   const runGuardedAction = async (actionKey: string, fn: () => Promise<void>) => {
     if (busyActionId) return;
@@ -273,10 +336,10 @@ export const AdminView: React.FC = () => {
     setClosingRegister(true);
     try {
       const savedReport = await closeCashRegisterAndSaveCut({
-        dateKey: todayKey,
+        dateKey: activeRegisterDateKey,
         countedCash: cashCutPreview.countedCash,
       });
-      downloadCashCutPdf({ report: savedReport, orders });
+      await downloadCashCutPdf({ report: savedReport, orders });
       setShowCloseRegisterModal(false);
     } catch (err) {
       setCloseRegisterError(extractFriendlyErrorMessage(err, 'No se pudo cerrar la caja.'));
@@ -377,7 +440,7 @@ export const AdminView: React.FC = () => {
             id="admin-date-picker"
             type="date"
             value={selectedDateKey}
-            onChange={(e) => setSelectedDateKey(e.target.value)}
+            onChange={(e) => setSelectedDateKey(e.target.value || todayKey)}
             className="px-3 py-2 rounded-lg bg-[#0e0c0b] border border-stone-700 text-xs font-mono-tabular text-white focus:border-orange-500 focus:outline-none"
           />
         </div>
@@ -416,7 +479,7 @@ export const AdminView: React.FC = () => {
           {todaySavedCut && (
             <button
               type="button"
-              onClick={() => downloadCashCutPdf({ report: todaySavedCut, orders })}
+              onClick={() => void downloadCashCutPdf({ report: todaySavedCut, orders })}
               className="px-3.5 py-2 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs font-semibold text-stone-100 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition"
             >
               <FileDown className="w-4 h-4 text-amber-400 shrink-0" />
@@ -493,9 +556,104 @@ export const AdminView: React.FC = () => {
         </div>
       </section>
 
-      {/* TAB 1: LIVE ORDER MONITOR */}
+      {/* TAB 1: LIVE ORDER MONITOR & ADMIN-ONLY CANCELLATIONS */}
       {activeTab === 'monitor' && (
-        <section className="bg-[#161210] border border-stone-800 rounded-xl p-5 space-y-4">
+        <div className="space-y-6">
+          {/* Dedicated Live Active Waiter Orders Panel (Admin-Exclusive Cancellation Control) */}
+          <section
+            aria-label="Cancelación exclusiva de pedidos activos de meseros"
+            className="bg-[#161210] border border-red-900/45 rounded-xl p-5 space-y-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800 pb-3">
+              <div>
+                <h2 className="font-heading text-xl uppercase tracking-wide text-white flex items-center gap-2">
+                  <Ban className="w-5 h-5 text-red-400 shrink-0" />
+                  <span>
+                    Pedidos Activos de Meseros · Cancelación ({activeWaiterOrders.length})
+                  </span>
+                </h2>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Solo el Administrador puede cancelar pedidos tomados por meseros. Al cancelar, el
+                  pedido desaparece al instante de Cocina, Caja y la mesa del Mesero.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-md bg-red-950/60 border border-red-800/60 text-[11px] font-semibold text-red-200 whitespace-nowrap">
+                Exclusivo Administrador
+              </span>
+            </div>
+
+            {activeWaiterOrders.length === 0 ? (
+              <p className="text-xs text-stone-500 py-5 text-center border border-dashed border-stone-800 rounded-lg">
+                No hay pedidos activos de meseros pendientes por cobrar o preparar en este momento.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {activeWaiterOrders.map((order) => {
+                  const meta = ORDER_STATUS_META[order.status];
+                  const itemQtyTotal = order.items.reduce((acc, i) => acc + i.qty, 0);
+                  const previewDishes = order.items
+                    .slice(0, 3)
+                    .map((i) => `${i.qty}x ${i.name}`)
+                    .join(', ');
+                  return (
+                    <div
+                      key={order.id}
+                      className="p-3.5 rounded-lg bg-[#120f0d] border border-stone-800 flex flex-col justify-between gap-3"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-heading text-base uppercase tracking-wide text-white leading-tight truncate">
+                              {order.serviceType} · {order.folio}
+                            </p>
+                            <p className="text-xs text-stone-400 truncate">
+                              Mesero: <strong className="text-stone-200">{order.waiterName}</strong>
+                            </p>
+                          </div>
+                          <span className="font-mono-tabular text-sm font-bold text-amber-400 shrink-0">
+                            {formatMXN(order.total)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className={`font-semibold ${meta.colorClass}`}>{meta.label}</span>
+                          <span className="text-stone-500">
+                            {itemQtyTotal} {itemQtyTotal === 1 ? 'platillo' : 'platillos'}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-stone-400 line-clamp-2">
+                          {previewDishes}
+                          {order.items.length > 3 ? ` (+${order.items.length - 3} más)` : ''}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-stone-800/80">
+                        <button
+                          type="button"
+                          onClick={() => setTicketOrder(order)}
+                          className="flex-1 px-2.5 py-1.5 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-medium inline-flex items-center justify-center gap-1.5 cursor-pointer transition"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>Ver Detalle</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCancelModal(order)}
+                          className="flex-1 px-2.5 py-1.5 rounded-md bg-red-950/80 hover:bg-red-700 text-red-200 hover:text-white border border-red-800/70 text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition"
+                        >
+                          <Ban className="w-3.5 h-3.5 shrink-0" />
+                          <span>Cancelar Pedido</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="bg-[#161210] border border-stone-800 rounded-xl p-5 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {(
@@ -563,6 +721,10 @@ export const AdminView: React.FC = () => {
                 ) : (
                   filteredOrders.map((order) => {
                     const meta = ORDER_STATUS_META[order.status];
+                    const cancelAuditNote =
+                      order.status === 'cancelled'
+                        ? cancellationNoteByOrderId.get(order.id)
+                        : undefined;
                     return (
                       <tr key={order.id} className="hover:bg-stone-900/40">
                         <td className="py-3 pr-4 font-mono-tabular font-semibold text-stone-200 whitespace-nowrap">
@@ -571,8 +733,15 @@ export const AdminView: React.FC = () => {
                         <td className="py-3 pr-4 text-white whitespace-nowrap">
                           {order.serviceType}
                         </td>
-                        <td className={`py-3 pr-4 font-medium whitespace-nowrap ${meta.colorClass}`}>
-                          {meta.label}
+                        <td className="py-3 pr-4">
+                          <span className={`font-medium whitespace-nowrap ${meta.colorClass}`}>
+                            {meta.label}
+                          </span>
+                          {cancelAuditNote && (
+                            <p className="text-[11px] text-stone-500 max-w-xs truncate" title={cancelAuditNote}>
+                              {cancelAuditNote}
+                            </p>
+                          )}
                         </td>
                         <td className="py-3 pr-4 text-stone-300 whitespace-nowrap">
                           {order.waiterName}
@@ -594,43 +763,15 @@ export const AdminView: React.FC = () => {
                               <span>Ver Ticket</span>
                             </button>
 
-                            {order.status !== 'paid' && order.status !== 'cancelled' && (
-                              confirmCancelId === order.id ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={busyActionId !== null}
-                                    onClick={() =>
-                                      void runGuardedAction(`cancel-${order.id}`, async () => {
-                                        await updateOrderStatus(order.id, 'cancelled');
-                                        setConfirmCancelId(null);
-                                      })
-                                    }
-                                    className="px-2.5 py-1 rounded bg-red-700 hover:bg-red-600 disabled:opacity-60 text-white font-semibold cursor-pointer"
-                                  >
-                                    {busyActionId === `cancel-${order.id}`
-                                      ? 'Cancelando...'
-                                      : 'Confirmar Cancelación'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={busyActionId !== null}
-                                    onClick={() => setConfirmCancelId(null)}
-                                    className="px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 cursor-pointer"
-                                  >
-                                    No
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmCancelId(order.id)}
-                                  className="px-2.5 py-1 rounded bg-stone-900 hover:bg-red-950 text-stone-400 hover:text-red-300 border border-stone-800 inline-flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Ban className="w-3 h-3" />
-                                  <span>Cancelar</span>
-                                </button>
-                              )
+                            {canCancelOrder('admin', order.status) && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCancelModal(order)}
+                                className="px-2.5 py-1 rounded bg-red-950/75 hover:bg-red-700 text-red-200 hover:text-white border border-red-800/70 inline-flex items-center gap-1 font-semibold cursor-pointer transition"
+                              >
+                                <Ban className="w-3 h-3" />
+                                <span>Cancelar Pedido</span>
+                              </button>
                             )}
                           </div>
                         </td>
@@ -641,7 +782,8 @@ export const AdminView: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </section>
+          </section>
+        </div>
       )}
 
       {/* TAB 2: DAILY SALES REPORTS */}
@@ -660,7 +802,7 @@ export const AdminView: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleDownloadSalesReportPdf}
+                  onClick={() => void handleDownloadSalesReportPdf()}
                   className="px-3.5 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer"
                 >
                   <FileDown className="w-4 h-4 shrink-0" />
@@ -803,7 +945,7 @@ export const AdminView: React.FC = () => {
                           <td className="py-2 text-right">
                             <button
                               type="button"
-                              onClick={() => downloadCashCutPdf({ report: rep, orders })}
+                              onClick={() => void downloadCashCutPdf({ report: rep, orders })}
                               className="px-2.5 py-1 rounded bg-stone-800 hover:bg-stone-700 text-amber-400 inline-flex items-center gap-1 cursor-pointer"
                             >
                               <FileDown className="w-3 h-3 shrink-0" />
@@ -1463,9 +1605,10 @@ export const AdminView: React.FC = () => {
               </div>
               <button
                 type="button"
+                disabled={openingRegister}
                 aria-label="Cerrar ventana de apertura"
                 onClick={() => setShowOpenRegisterModal(false)}
-                className="w-9 h-9 rounded-lg border border-stone-700 hover:bg-stone-800 text-stone-300 flex items-center justify-center cursor-pointer"
+                className="w-9 h-9 rounded-lg border border-stone-700 hover:bg-stone-800 disabled:opacity-50 text-stone-300 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1510,8 +1653,9 @@ export const AdminView: React.FC = () => {
               <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
+                  disabled={openingRegister}
                   onClick={() => setShowOpenRegisterModal(false)}
-                  className="px-4 py-2.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2.5 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-50 text-stone-200 text-xs font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -1544,7 +1688,7 @@ export const AdminView: React.FC = () => {
                   id="close-register-modal-heading"
                   className="font-heading text-xl uppercase tracking-wide text-white"
                 >
-                  Cerrar Caja y Corte · {todayKey}
+                  Cerrar Caja y Corte · {activeRegisterDateKey}
                 </h2>
                 <p className="text-xs text-stone-400">
                   Cierre exclusivo de Administrador con descarga automática en PDF
@@ -1552,9 +1696,10 @@ export const AdminView: React.FC = () => {
               </div>
               <button
                 type="button"
+                disabled={closingRegister}
                 aria-label="Cerrar ventana de corte de caja"
                 onClick={() => setShowCloseRegisterModal(false)}
-                className="w-9 h-9 rounded-lg border border-stone-700 hover:bg-stone-800 text-stone-300 flex items-center justify-center cursor-pointer"
+                className="w-9 h-9 rounded-lg border border-stone-700 hover:bg-stone-800 disabled:opacity-50 text-stone-300 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1575,19 +1720,19 @@ export const AdminView: React.FC = () => {
                 <div>
                   <p className="text-stone-400">Ventas Efectivo</p>
                   <p className="font-mono-tabular text-base font-bold text-white">
-                    {formatMXN(todaySummary.cashTotal)}
+                    {formatMXN(registerShiftSummary.cashTotal)}
                   </p>
                 </div>
                 <div>
                   <p className="text-stone-400">Tarjeta + Transferencia</p>
                   <p className="font-mono-tabular text-sm font-semibold text-stone-200">
-                    {formatMXN(roundMoney(todaySummary.cardTotal + todaySummary.transferTotal))}
+                    {formatMXN(roundMoney(registerShiftSummary.cardTotal + registerShiftSummary.transferTotal))}
                   </p>
                 </div>
                 <div>
                   <p className="text-stone-400">Total General Día</p>
                   <p className="font-mono-tabular text-base font-bold text-amber-400">
-                    {formatMXN(todaySummary.totalRevenue)}
+                    {formatMXN(registerShiftSummary.totalRevenue)}
                   </p>
                 </div>
               </div>
@@ -1629,7 +1774,7 @@ export const AdminView: React.FC = () => {
                           : 'text-red-400'
                     }`}
                   >
-                    {cashCutPreview.statusLabel} ({cashCutPreview.difference >= 0 ? '+' : ''}
+                    {cashCutPreview.statusLabel} ({cashCutPreview.difference > 0 ? '+' : ''}
                     {formatMXN(cashCutPreview.difference)})
                   </span>
                 </div>
@@ -1647,8 +1792,9 @@ export const AdminView: React.FC = () => {
               <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
+                  disabled={closingRegister}
                   onClick={() => setShowCloseRegisterModal(false)}
-                  className="px-4 py-2.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2.5 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-50 text-stone-200 text-xs font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -1668,11 +1814,164 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
+      {/* Modal: Cancel Waiter Order (Admin Exclusive) */}
+      {cancelModalOrder && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-order-modal-heading"
+        >
+          <div className="bg-[#181412] border border-red-900/60 rounded-xl max-w-lg w-full overflow-hidden shadow-2xl">
+            <div className="px-5 py-4 border-b border-stone-800 flex items-center justify-between gap-4">
+              <div>
+                <h2
+                  id="cancel-order-modal-heading"
+                  className="font-heading text-xl uppercase tracking-wide text-white flex items-center gap-2"
+                >
+                  <Ban className="w-5 h-5 text-red-400 shrink-0" />
+                  <span>Cancelar Pedido · {cancelModalOrder.folio}</span>
+                </h2>
+                <p className="text-xs text-stone-400">
+                  Acción exclusiva de Administrador · Quedará registrada en auditoría
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={cancellingOrder}
+                aria-label="Cerrar ventana de cancelación"
+                onClick={() => setCancelModalOrder(null)}
+                className="w-9 h-9 rounded-lg border border-stone-700 hover:bg-stone-800 disabled:opacity-50 text-stone-300 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => void handleConfirmCancelOrderSubmit(e)}
+              noValidate
+              className="p-5 space-y-4"
+            >
+              {/* Order Summary */}
+              <div className="p-3.5 rounded-lg bg-[#120f0d] border border-stone-800 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-stone-800">
+                  <div>
+                    <p className="font-semibold text-white text-sm">
+                      {cancelModalOrder.serviceType} · {cancelModalOrder.folio}
+                    </p>
+                    <p className="text-stone-400">
+                      Pedido tomado por Mesero:{' '}
+                      <strong className="text-stone-200">{cancelModalOrder.waiterName}</strong>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono-tabular text-base font-bold text-amber-400">
+                      {formatMXN(cancelModalOrder.total)}
+                    </p>
+                    <p className={`text-[11px] font-medium ${ORDER_STATUS_META[cancelModalOrder.status].colorClass}`}>
+                      {ORDER_STATUS_META[cancelModalOrder.status].label}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                  {cancelModalOrder.items.map((item) => (
+                    <div key={item.lineId} className="flex justify-between gap-2 text-stone-300">
+                      <span className="truncate">
+                        <strong className="text-amber-400">{item.qty}x</strong> {item.name}
+                        {item.notes ? ` (${item.notes})` : ''}
+                      </span>
+                      <span className="font-mono-tabular shrink-0">
+                        {formatMXN(item.unitPrice * item.qty)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reason Presets & Custom Input */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="admin-cancel-reason-input"
+                  className="block text-xs font-semibold text-stone-200"
+                >
+                  Motivo de la cancelación (obligatorio para auditoría)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CANCELLATION_REASON_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={cancellingOrder}
+                      onClick={() => {
+                        setCancelReason(preset);
+                        setCancelError(null);
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium border cursor-pointer transition ${
+                        cancelReason === preset
+                          ? 'bg-red-950/80 border-red-600 text-red-100'
+                          : 'bg-[#120f0d] border-stone-800 text-stone-300 hover:border-stone-600'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  id="admin-cancel-reason-input"
+                  type="text"
+                  maxLength={MAX_CANCEL_REASON_LENGTH}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Describe brevemente el motivo de cancelación..."
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-[#0e0c0b] border border-stone-700 text-xs text-white placeholder-stone-500 focus:border-red-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  Al confirmar, el pedido se cancelará en tiempo real y dejará de aparecer en{' '}
+                  <strong className="text-stone-200">Cocina</strong>,{' '}
+                  <strong className="text-stone-200">Caja</strong> y la{' '}
+                  <strong className="text-stone-200">Mesa del Mesero</strong>.
+                </p>
+              </div>
+
+              {cancelError && (
+                <div
+                  role="alert"
+                  className="p-3 rounded-lg bg-red-950/60 border border-red-800/70 text-xs text-red-200"
+                >
+                  {cancelError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={cancellingOrder}
+                  onClick={() => setCancelModalOrder(null)}
+                  className="px-4 py-2.5 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-50 text-stone-200 text-xs font-semibold cursor-pointer"
+                >
+                  Volver
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancellingOrder}
+                  className="px-4 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-2 cursor-pointer transition"
+                >
+                  <Ban className="w-4 h-4 shrink-0" />
+                  <span>{cancellingOrder ? 'Cancelando pedido...' : 'Confirmar Cancelación'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {ticketOrder && (
         <TicketModal
           order={ticketOrder}
           onClose={() => setTicketOrder(null)}
           onLoadPrivateCustomer={loadOrderPrivateCustomer}
+          onRequestCancel={handleOpenCancelModal}
         />
       )}
     </div>

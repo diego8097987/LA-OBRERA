@@ -1,0 +1,5 @@
+{
+  "updateUrl": "https://github.com/diego8097987/LA-OBRERA/releases/latest/download",
+  "autoCheckOnStartup": true,
+  "checkIntervalMinutes": 30
+}
